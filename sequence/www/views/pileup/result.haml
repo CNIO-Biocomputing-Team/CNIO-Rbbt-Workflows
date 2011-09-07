@@ -1,0 +1,7 @@
+- clean = clean_jobname jobname
+%h2== Genotype #{clean}
+
+%a(href="/Sequence/mutated_isoforms_for_genomic_mutations?organism=#{step.info[:inputs][:organism]}&mutations=local:pileup:#{jobname}&jobname=#{ clean }") Mutated Isoforms
+%a(href="/Sequence/genes_at_genomic_positions?organism=#{step.info[:inputs][:organism]}&positions=local:pileup:#{jobname}&jobname=#{ clean }&_page=1") Genes
+
+

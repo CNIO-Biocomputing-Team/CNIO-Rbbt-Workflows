@@ -1,0 +1,15 @@
+structure=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
+ workflow.rb
+ lib=lib {
+  uniprot.rb
+  cath.rb
+ }
+ test=test{
+  test_helper.rb
+ }
+ www=www {
+  main.rb
+  views=views {
+  }
+ }
+}

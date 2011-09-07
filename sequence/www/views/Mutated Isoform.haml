@@ -1,0 +1,30 @@
+- protein, change = entity.split(":")
+%h2== Protein: #{protein}. Change: #{ change }
+
+- if change =~ /UTR/
+  - type = "UTR"
+- else
+  - type = "Protein"
+  - wt, pos, mut = change.match(/(.)(\d+)(.)/).values_at 1, 2, 3
+  - if protein =~ /ENSP/
+    - uniprots = Translation.translate_protein_from(locals[:organism], "UniProt/SwissProt Accession", "Ensembl Protein ID", [protein]).first
+  - else
+    - uniprots = nil
+  %dl
+    -# if uniprots.nil? or uniprots.empty?
+      %span No uniprot translations found
+
+    -# else
+      - uniprots.each do |uniprot|
+        - cath_domains = Structure.position_over_domain(uniprot, pos.to_i)
+        - pdbs = Structure.pdbs(uniprot)
+        %dt Uniprot: #{ html(uniprot, "Uniprot") }
+        %dd
+          %dl
+            - if pdbs.any?
+              %dt PDBs
+              %dd= html(pdbs, "PDB") * ", "
+            - if cath_domains.any?
+              %dt Cath domains
+              %dd= cath_domains * ", "
+

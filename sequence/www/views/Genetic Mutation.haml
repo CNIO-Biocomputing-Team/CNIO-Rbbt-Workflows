@@ -1,0 +1,5 @@
+%h3== Genetic Mutation: #{entity}
+
+%dl
+  %dt Overlapping genes
+  %dd= html(Sequence.genes_at_genomic_positions(organism, [entity]).first.split('|'), "Gene", :organism => organism) * ", "

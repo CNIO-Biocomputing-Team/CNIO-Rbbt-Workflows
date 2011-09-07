@@ -1,0 +1,37 @@
+sequence=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
+ workflow.rb
+ lib=lib {
+  sequence.rb
+  indices.rb
+ }
+ test=test{
+  data=data{
+   CLL-1.tsv
+  }
+ }
+ www=www {
+  main.rb
+  views=views {
+   compass=compass{
+   }
+   Gene.haml
+   Gene.small.haml
+   Genomic Position.haml
+   Genomic Position.small.haml
+   Mutated Isoform.haml
+   PDB.haml
+   KEGG Pathway ID.haml
+   mutated_isoforms_for_genomic_mutations=mutated_isoforms_for_genomic_mutations{
+   }
+   genotype=genotype{
+    result.haml
+   }
+   pileup=pileup{
+    result.haml
+   }
+   genes_at_genomic_positions=genes_at_genomic_positions{
+    result.haml
+   }
+  }
+ }
+}

@@ -1,0 +1,16 @@
+- chr, pos, mut = entity.split(":").values_at 0, 1, 2
+- chr.sub! "chr", ""
+%h3== Position: #{ entity }
+%dl
+  %dt Overlaping genes:
+  %dl
+    = html(Sequence.genes_at_chr_positions(locals["organism"], chr, [pos]).first.split("|"), "Gene", :organism => locals[:organism]) * ", "
+
+  - if not mut.nil?
+    - severity = Mutation.job(:mutation_severity_for_genomic_positions, "WWW", :organism => locals["organism"], :mutations => [entity]).run
+    - if severity.include? entity and severity[entity]
+      - ddd severity[entity]
+      - severity = severity[entity].zip_fields
+      %dt Mutated Isoforms
+      %dl= severity.length
+    

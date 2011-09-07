@@ -1,0 +1,10 @@
+- name = $kegg_pathways[entity]
+- name = name["Pathway Name"].sub!(/ -.*/, '') unless name.nil?
+ 
+%h3
+  Pathway:
+  = name || entity
+
+%a(href='http://www.genome.jp/kegg-bin/show_pathway?#{entity}')
+  %img(src='http://www.genome.jp/kegg/pathway/hsa/#{entity}.png' style='width:100%;float:left;margin-right:10px;margin-botton:10px;' title='Click to see KEGG entry')
+  

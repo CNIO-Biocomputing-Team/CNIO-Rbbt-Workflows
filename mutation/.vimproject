@@ -1,0 +1,10 @@
+mutation=/$PWD filter="*.rb *.R *.js *.sass *.haml" {
+ workflow.rb
+ lib=lib {
+ }
+ www=www {
+  main.rb
+  views=views {
+  }
+ }
+}
