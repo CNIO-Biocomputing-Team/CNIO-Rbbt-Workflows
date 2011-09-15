@@ -14,6 +14,14 @@ module Cath
     tsv.to_s
   end
 
+  Rbbt.claim Rbbt.share.databases.CATH.CathUnclassifiedList , :proc do
+    Open.read("http://release.cathdb.info/v3.4.0/CathUnclassifiedList").split(/\n/).collect do |line|
+      next if line =~ /^#/
+      line.split(/\s/).first
+    end * "\n"
+  end
+
+
   Rbbt.claim Rbbt.share.databases.CATH.CathDomainSeqs, :proc do
     tsv = TSV.setup({}, :key_field => "CATH Domain", :type => :single, :fields => ["Cath Domain Sequence"])
 
@@ -84,6 +92,20 @@ module Cath
     @@pdb
   end
 
+  def self.unclassified
+    @@unclassified = {}
+    Rbbt.share.databases.CATH.CathUnclassifiedList.read.split("\n").each do |domain|
+      pdb = domain[0..3]
+      @@unclassified[pdb] ||= []
+      @@unclassified[pdb] << domain
+    end
+    @@unclassified
+  end
+
+  def self.domain_sequences
+    @@domain_sequences ||= Rbbt.share.databases.CATH.CathDomainSeqs.tsv(:persist => true)
+  end
+
   def self.pdbs(cath_code)
     cath = cath_index
     if cath.include? cath_code
@@ -95,22 +117,23 @@ module Cath
 
   def self.domains_for_pdb(pdb)
     pdb2cath = pdb_index
-    return [] unless pdb2cath.include? pdb
-    pdb2cath[pdb].collect{|domain| domain}
+    (pdb2cath[pdb] || []) + (unclassified[pdb] || [])
   end
 
   def self.align(domain, sequence)
     require 'bio'
 
+    return nil if not domain_sequences.include? domain
+
     TmpFile.with_file(">target\n" << sequence) do |target|
-      TmpFile.with_file(">domain\n" << Rbbt.share.databases.CATH.CathDomainSeqs.tsv(:persist => true)[domain]) do |domain|
+      TmpFile.with_file(">domain\n" << domain_sequences[domain]) do |domain|
 
         result = CMD.cmd("fasta35 #{ target } #{ domain }").read
 
         if result.match(/([\d\.]+)% identity.*overlap \((\d+)-(\d+):/s)
           {:identity => $1.to_f, :range => ($2.to_i..$3.to_i)}
         else
-          nil
+          false
         end
       end
     end

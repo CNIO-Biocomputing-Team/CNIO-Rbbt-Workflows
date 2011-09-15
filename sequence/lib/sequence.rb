@@ -32,11 +32,11 @@ module Sequence
       chr_genes[chr] = genes_at_chr_positions(organism, chr, list)
     end
 
-    tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Ensembl Gene ID"], :type => :double)
+    tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Ensembl Gene ID"], :type => :flat)
     positions.collect do |position|
       chr, pos = position.split(/[\s:\t]/).values_at 0, 1
       chr.sub!(/chr/,'')
-      tsv[position] = [chr_genes[chr].shift.split("|")]
+      tsv[position] = chr_genes[chr].shift.split("|")
     end
     tsv
   end

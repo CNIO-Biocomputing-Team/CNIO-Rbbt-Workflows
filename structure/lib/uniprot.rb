@@ -80,7 +80,6 @@ module Uniprot
   end
 
   def self.cath_domains(protein)
-    #pdbs = (pdbs(protein).keys + cath(protein).keys.collect{|code| Cath.pdbs code}.compact).uniq
     pdbs = pdbs(protein).keys.uniq
     pdbs.collect do |pdb|
       Cath.domains_for_pdb(pdb)

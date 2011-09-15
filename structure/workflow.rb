@@ -5,11 +5,14 @@ require 'rbbt/sources/organism'
 require 'cath'
 require 'uniprot'
 
+Workflow.require_workflow 'Translation'
 module Structure
   extend Workflow
 
+  ALIGNMENT_THRESHOLD = 80
+
   desc "Find Cath domains for protein"
-  input :uniprot, :string, "Uniprot ID"
+  input :uniprot, :string, "UniProt/SwissProt Accession"
   def self.cath_domains(uniprot)
     Uniprot.cath_domains(uniprot)
   end
@@ -22,14 +25,25 @@ module Structure
   input :domain, :string, "Cath domain"
   def self.position_over_domain(sequence, position, domain)
     alignment = Cath.align(domain, sequence)
-    alignment and alignment[:identity] > 95 and alignment[:range].include? position
+    alignment and alignment[:identity] > ALIGNMENT_THRESHOLD and alignment[:range].include? position
+  end
+  task :position_over_domain => :boolean
+  export_exec :position_over_domain
+
+  desc "Find if position in sequence overlaps cath domains"
+  input :sequence, :text, "Protein sequence"
+  input :position, :integer, "Position in the protein sequence"
+  input :pdb, :string, "PDB"
+  def self.position_over_pdb(sequence, position, domain)
+    alignment = Cath.align(domain, sequence)
+    alignment and alignment[:identity] > ALIGNMENT_THRESHOLD and alignment[:range].include? position
   end
   task :position_over_domain => :boolean
   export_exec :position_over_domain
 
 
   desc "Find PDBs for uniprot entry"
-  input :uniprot, :string, "Uniprot ID"
+  input :uniprot, :string, "UniProt/SwissProt Accession"
   def self.pdbs(uniprot)
     Uniprot.pdbs(uniprot).keys
   end
@@ -88,10 +102,10 @@ module Structure
 
       variants.each do |variant|
         start = variant[:start]
-        if not start.nil?
-          matching_domains = domains.select{|domain, info| info[:identity] > 99 and info[:range].include? start.to_i }.collect{|domain, info| domain}
-        else
+        if start.nil?
           matching_domains = []
+        else
+          matching_domains = domains.select{|domain, info| info and info[:identity] > ALIGNMENT_THRESHOLD and info[:range].include? start.to_i }.collect{|domain, info| domain}
         end
 
         cath_codes = matching_domains.collect{|domain| 
@@ -107,7 +121,4 @@ module Structure
   end
   task :protein_variant_analysis => :tsv
   export_synchronous :protein_variant_analysis
-
-
-
 end

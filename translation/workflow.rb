@@ -99,8 +99,8 @@ module Translation
 
   desc "Translate protein ids to a particular format given in another format. Return TSV"
   input :organism, :string, "Organism code", "Hsa"
-  input :target_format, :string, "Target identifier format", "Ensembl Gene ID"
-  input :source_format, :string, "Source identifier format", "Ensembl Gene ID"
+  input :target_format, :string, "Target identifier format", "Ensembl Protein ID"
+  input :source_format, :string, "Source identifier format", "Ensembl Protein ID"
   input :proteins, :array, "Protein id list"
   def self.tsv_translate_protein_from(organism, target, source, proteins)
     index = protein_index(organism, target, source)
