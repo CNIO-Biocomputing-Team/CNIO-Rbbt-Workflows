@@ -28,4 +28,18 @@ module Translation
     @@protein_index[key]
   end
 
+  def self.probe_index(organism, target, source = nil)
+    key = [organism, target, source]
+    @@probe_index ||= {}
+    if @@probe_index[key].nil?
+      if source.nil?
+        @@probe_index[key] = Organism.probe_transcripts(organism).index(:target => target, :persist => true, :order => true)
+      else
+        @@probe_index[key] = Organism.probe_transcripts(organism).index(:target => target, :fields => [source], :persist => true, :order => true)
+      end
+      @@probe_index[key].unnamed = true
+    end
+    @@probe_index[key]
+  end
+
 end

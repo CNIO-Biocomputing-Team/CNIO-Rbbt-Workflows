@@ -111,7 +111,61 @@ module Translation
     tsv
   end
   task :tsv_translate_protein_from => :tsv
-
   export_exec :translate_protein, :translate_protein_from, :tsv_translate_protein, :tsv_translate_protein_from
+
+
+
+  desc "Translate probe ids to a particular format"
+  input :organism, :string, "Organism code", "Hsa"
+  input :format, :string, "Target identifier format", "Ensembl Transcript ID"
+  input :probes, :array, "Probe id list"
+  def self.translate_probe(organism, format, probes)
+    index = probe_index(organism, format)
+    index.values_at(*probes).collect{|list| list.nil? ? nil : list.first}
+  end
+  task :translate_probe => :array
+
+  desc "Translate probe ids to a particular format given in another format"
+  input :organism, :string, "Organism code", "Hsa"
+  input :target_format, :string, "Target identifier format", "Ensembl Transcript ID"
+  input :source_format, :string, "Source identifier format", "Ensembl Transcript ID"
+  input :probes, :array, "Probe id list"
+  def self.translate_probe_from(organism, format, source, probes)
+    index = probe_index(organism, format, source)
+    index.values_at(*probes).collect{|list| list.nil? ? nil : list.first}
+  end
+  task :translate_probe_from => :array
+
+  desc "Translate probe ids to a particular format. Return TSV"
+  input :organism, :string, "Organism code", "Hsa"
+  input :format, :string, "Target identifier format", "Ensembl Transcript ID"
+  input :probes, :array, "Probe id list"
+  def self.tsv_translate_probe(organism, format, probes)
+    index = probe_index(organism, format)
+    tsv = TSV.setup({}, :key_field => "Transcript", :fields => [format])
+    probes.each do |probe|
+      tsv[probe] = index[probe]
+    end
+    tsv
+  end
+  task :tsv_translate_probe => :tsv
+
+  desc "Translate probe ids to a particular format given in another format. Return TSV"
+  input :organism, :string, "Organism code", "Hsa"
+  input :target_format, :string, "Target identifier format", "Ensembl Transcript ID"
+  input :source_format, :string, "Source identifier format", "Ensembl Transcript ID"
+  input :probes, :array, "Probe id list"
+  def self.tsv_translate_probe_from(organism, target, source, probes)
+    index = probe_index(organism, target, source)
+    tsv = TSV.setup({}, :key_field => source, :fields => [target])
+    probes.each do |probe|
+      tsv[probe] = index[probe]
+    end
+    tsv
+  end
+  task :tsv_translate_probe_from => :tsv
+
+  export_exec :translate_probe, :translate_probe_from, :tsv_translate_probe, :tsv_translate_probe_from
+
 
 end
