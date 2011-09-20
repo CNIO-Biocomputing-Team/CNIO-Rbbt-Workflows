@@ -57,7 +57,7 @@ module Structure
     if protein =~ /^ENSP/
       ensembl = protein
     else
-      ensembl = Translation.translate(organism, "Ensembl Protein ID", protein)
+      ensembl = Translation.job(:translate, nil, :organism => organism, :format => "Ensembl Protein ID", :genes => [protein]).exec
       ensembl = ensembl.first unless ensembl.nil?
       raise "Could not translate to Ensembl Protein ID" if ensembl.nil?
     end
@@ -65,7 +65,7 @@ module Structure
     sequence = Organism.protein_sequence(organism).tsv(:persist =>  true)[ensembl]
     raise "No sequence for protein: #{ protein }" if sequence.nil?
 
-    uniprots = Translation.translate(organism, "UniProt/SwissProt Accession", [protein]).first
+    uniprots = Translation.job(:translate, nil, :organism => organism, :format => "UniProt/SwissProt Accession", :genes => [protein]).exec
     uniprots.collect{|uniprot| Uniprot.cath_domains(uniprot).collect{|dom| [uniprot, dom] * ":"}}.flatten
   end
   task :protein_cath_domains => :array
@@ -80,7 +80,7 @@ module Structure
     if protein =~ /^ENSP/
       ensembl = protein
     else
-      ensembl = Translation.translate(organism, "Ensembl Protein ID", protein)
+      ensembl = Translation.job(:translate, nil, :organism => organism, :format => "Ensembl Protein ID", :genes => [protein]).exec
       ensembl = ensembl.first unless ensembl.nil?
       raise "Could not translate to Ensembl Protein ID" if ensembl.nil?
     end
@@ -88,7 +88,7 @@ module Structure
     sequence = Organism.protein_sequence(organism).tsv(:persist =>  true)[ensembl]
     raise "No sequence for protein: #{ protein }" if sequence.nil?
 
-    uniprots = Translation.translate(organism, "UniProt/SwissProt Accession", [protein]).first
+    uniprots = Translation.job(:translate, nil, :organism => organism, :format => "UniProt/SwissProt Accession", :genes => [protein]).exec
     domain_codes = Rbbt.share.databases.CATH.CathDomainList.tsv :persist => true
 
     uniprots.each do |uniprot|

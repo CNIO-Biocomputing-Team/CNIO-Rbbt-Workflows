@@ -5,8 +5,7 @@ require 'rbbt/mutation/snps_and_go'
 require 'rbbt/mutation/sift'
 require 'rbbt/mutation/mutation_assessor'
 
-Workflow.require_workflow "translation"
-
+Workflow.require_workflow "Translation"
 module Mutation
   extend Workflow
 

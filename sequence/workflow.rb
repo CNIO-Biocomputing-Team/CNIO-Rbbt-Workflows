@@ -5,7 +5,7 @@ require 'rbbt/sources/organism'
 require 'sequence'
 require 'bio'
 
-Workflow.require_workflow 'mutation'
+Workflow.require_workflow 'Mutation'
 module Sequence
   extend Workflow
   extend Resource
