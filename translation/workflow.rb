@@ -165,7 +165,16 @@ module Translation
   end
   task :tsv_translate_probe_from => :tsv
 
-  export_exec :translate_probe, :translate_probe_from, :tsv_translate_probe, :tsv_translate_probe_from
 
+  desc "Translate transcript to their corresponding protein ids "
+  input :organism, :string, "Organism code", "Hsa"
+  input :transcripts, :array, "Ensembl Transcript ID"
+  def self.transcript_to_protein(organism, transcripts)
+    index = transcript_to_protein_index(organism)
 
+    index.values_at(*transcripts).collect{|l| l.nil? ? nil : l.first}
+  end
+  task :transcript_to_protein => :array
+  
+  export_exec :translate_probe, :translate_probe_from, :tsv_translate_probe, :tsv_translate_probe_from, :transcript_to_protein
 end

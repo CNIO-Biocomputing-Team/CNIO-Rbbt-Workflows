@@ -43,6 +43,7 @@ module Sequence
     @@exon_info ||= {}
     if @@exon_info[key].nil?
       @@exon_info[key] = Organism.exons(organism).tsv :persist => true, :serializer => :list
+      @@exon_info[key].unnamed = true
     end
     @@exon_info[key]
   end

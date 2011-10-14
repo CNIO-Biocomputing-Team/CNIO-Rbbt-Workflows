@@ -71,7 +71,7 @@ module Sequence
       chr_exons[chr] = exons_at_chr_positions(organism, chr, list)
     end
 
-    tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Ensembl Exon ID"], :type => :double)
+    tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Ensembl Exon ID"], :type => :flat)
     positions.collect do |position|
       chr, pos = position.split(/[\s:\t]/).values_at 0, 1
       chr.sub!(/chr/,'')
@@ -91,6 +91,9 @@ module Sequence
     end_index = exon_end_index(organism, chromosome)
     exon_info = exon_info(organism)
 
+    strand_field_pos = exon_info.identify_field "Exon Strand"
+    start_field_pos = exon_info.identify_field "Exon Chr Start"
+    end_field_pos = exon_info.identify_field "Exon Chr End"
     positions.collect{|pos|
       pos = pos.to_i
       junctions = []
@@ -99,7 +102,7 @@ module Sequence
       start_exons = start_index[pos - 3..pos + 3]
 
       end_exons.each do |exon|
-        strand, eend = exon_info[exon].values_at "Exon Strand", "Exon Chr End"
+        strand, eend = exon_info[exon].values_at strand_field_pos, end_field_pos
         eend = eend.to_i
         diff = pos - eend
         case
@@ -111,7 +114,7 @@ module Sequence
       end
 
       start_exons.each do |exon|
-        strand, start = exon_info[exon].values_at "Exon Strand", "Exon Chr Start"
+        strand, start = exon_info[exon].values_at strand_field_pos, start_field_pos
         start = start.to_i
         diff = pos - start
 
@@ -166,12 +169,14 @@ module Sequence
     exon_transcript_offsets = exon_transcript_offsets(organism) 
     exon_transcript_offsets.unnamed = true
 
+    field_positions = ["Exon Strand", "Exon Chr Start", "Exon Chr End"].collect{|field| exon_info.identify_field field}
+
     exon_offsets = exons.collect do |position, exons|
       chr, pos = position.split(/[\s:\t]/).values_at 0, 1
       chr.sub!(/chr/,'')
       pos = pos.to_i
       list = exons.collect do |exon|
-        strand, start, eend = exon_info[exon].values_at "Exon Strand", "Exon Chr Start", "Exon Chr End"
+        strand, start, eend = exon_info[exon].values_at *field_positions
         if strand == "1"
           offset = pos - start.to_i
         else
@@ -235,6 +240,66 @@ module Sequence
   task :codon_at_transcript_position => :string
   export_exec :codon_at_transcript_position
 
+  desc "Guess if mutations are given in watson or gene strand"
+  input :organism, :string, "Organism code", "Hsa"
+  input :mutations, :array, "Mutation Chr:Position:Mut (e.g. 19:54646887:A). Separator can be ':', space or tab. Extra fields are ignored"
+  def self.is_watson(organism, mutations)
+    transcript_offsets = transcript_offsets_for_genomic_positions(organism, mutations)
+ 
+    same = 0
+    diff = 0
+    iupac_include = 0
+    iupac_exclude = 0
+    transcript_offsets.each do |mutation, list|
+      chr, pos, mut = mutation.split ":"
+      chr.sub!(/chr/,'')
+
+      case
+      when (mut.length == 1 and mut != '-')
+        alleles = Misc.IUPAC_to_base(mut) || []
+      else
+        next
+      end
+
+      list.collect{|t| t.split ":"}.each do |transcript, offset, strand|
+        offset = offset.to_i
+        begin
+          codon = codon_at_transcript_position(organism, transcript, offset)
+          case codon
+          when "UTR5", "UTR3"
+            next
+          else
+            triplet, offset, pos = codon.split ":"
+            next if not triplet.length === 3
+            original = Bio::Sequence::NA.new(triplet).translate
+            original_base = triplet[offset.to_i]
+            case 
+            when (alleles.length == 1 and alleles.first == original_base)
+              same += 1
+            when (alleles.length == 1 and alleles.first != original_base)
+              diff += 1
+            when alleles.include?(original_base)
+              iupac_include += 1
+            else
+              iupac_exclude += 1
+            end
+          end
+        rescue
+          Log.debug $!.message
+        end
+      end
+    end
+
+    set_info :same, same
+    set_info :diff, diff
+    set_info :iupac_include, iupac_include
+    set_info :iupac_exclude, iupac_exclude
+
+    diff + iupac_include > same + iupac_exclude
+  end
+  task :is_watson => :boolean
+  export_synchronous :is_watson
+
   desc "Mutated protein isoforms"
   input :organism, :string, "Organism code", "Hsa"
   input :watson, :boolean, "Alleles reported always in the Watson strand (as opposed to the gene's strand)", true
@@ -245,7 +310,6 @@ module Sequence
 
     mutated_isoforms = TSV.setup({}, :type => :double, :key_field => "Genomic Mutation", :fields => ["Mutated Isoform"])
 
-    sleep 10
     transcript_offsets.each do |mutation, list|
       chr, pos, mut = mutation.split ":"
       chr.sub!(/chr/,'')

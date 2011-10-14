@@ -42,4 +42,15 @@ module Translation
     @@probe_index[key]
   end
 
+  def self.transcript_to_protein_index(organism)
+    key = [organism]
+    @@transcript_to_protein_index ||= {}
+    if @@transcript_to_protein_index[key].nil?
+      @@transcript_to_protein_index[key] = Organism.transcripts(organism).index(:target => "Ensembl Protein ID", :fields => ["Ensembl Transcript ID"], :persist => false)
+      @@transcript_to_protein_index[key].unnamed = true
+    end
+    @@transcript_to_protein_index[key]
+  end
+
+
 end
