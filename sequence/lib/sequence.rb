@@ -188,7 +188,7 @@ module Sequence
       [position, list]
     end
 
-    tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Ensembl Transcrip ID:Offset:Strand"], :type => :double)
+    tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Ensembl Transcrip ID:Offset:Strand"], :type => :flat)
     
     exon_transcript_offsets.unnamed = false
     exon_offsets.each do |position, list|
@@ -308,7 +308,7 @@ module Sequence
     transcript_offsets = transcript_offsets_for_genomic_positions(organism, mutations)
     transcript_to_protein = Organism.transcripts(organism).tsv(:persist => true, :fields => ["Ensembl Protein ID"], :type => :single)
 
-    mutated_isoforms = TSV.setup({}, :type => :double, :key_field => "Genomic Mutation", :fields => ["Mutated Isoform"])
+    mutated_isoforms = TSV.setup({}, :type => :flat, :key_field => "Genomic Mutation", :fields => ["Mutated Isoform"])
 
     transcript_offsets.each do |mutation, list|
       chr, pos, mut = mutation.split ":"
@@ -365,7 +365,7 @@ module Sequence
     mutated_isoforms
   end
   task :mutated_isoforms_for_genomic_mutations => :tsv
-  export_asynchronous :mutated_isoforms_for_genomic_mutations
+  export_synchronous :mutated_isoforms_for_genomic_mutations
 
   desc "Identify known SNPs in a chromosome"
   input :organism, :string, "Organism code", "Hsa"
