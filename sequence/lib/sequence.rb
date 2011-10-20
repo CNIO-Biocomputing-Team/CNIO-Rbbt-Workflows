@@ -149,11 +149,11 @@ module Sequence
       chr_exon_junctions[chr] = exon_junctions_at_chr_positions(organism, chr, list)
     end
 
-    tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Exon Junction"], :type => :double)
+    tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Exon Junction"], :type => :flat)
     positions.collect do |position|
       chr, pos = position.split(/[\s:\t]/).values_at 0, 1
       chr.sub!(/chr/,'')
-      tsv[position] = [chr_exon_junctions[chr].shift.split("|")]
+      tsv[position] = chr_exon_junctions[chr].shift.split("|")
     end
     tsv
   end
@@ -195,7 +195,7 @@ module Sequence
       next if list.empty?
       offsets = []
       list.each do |exon, offset, strand|
-        exon_transcript_offsets[exon].zip_fields.each do |transcript, exon_offset|
+        Misc.zip_fields(exon_transcript_offsets[exon]).each do |transcript, exon_offset|
           offsets << [transcript, exon_offset.to_i + offset, strand] * ":"
         end
       end
@@ -215,15 +215,25 @@ module Sequence
     transcript_sequence = transcript_sequence(organism) 
     transcript_5utr = transcript_5utr(organism) 
     transcript_3utr = transcript_3utr(organism) 
+    transcript_phase = transcript_phase(organism)
 
-    utr5 = transcript_5utr[transcript].to_i
+    utr5 = transcript_5utr[transcript]
+      
+    if utr5.nil?
+      Log.debug "UTR5 for transcript was missing: #{ transcript }"
+      phase = transcript_phase[transcript]
+      raise "No UTR5 and no phase for transcript: #{ transcript }" if phase.nil?
+      raise "No UTR5 but phase is -1: #{ transcript }" if phase == -1
+      utr5 = - phase
+    else
+      utr5 = utr5.to_i
+    end
 
-    raise "UTR5 for transcript #{ transcript } was missing" if utr5.nil?
 
     return "UTR5" if utr5 > offset
 
     sequence = transcript_sequence[transcript]
-    raise "Sequence for transcript #{ transcript } was missing" if sequence.nil? if sequence.nil?
+    raise "Sequence for transcript was missing: #{ transcript }" if sequence.nil? if sequence.nil?
 
     ccds_offset = offset - utr5
     utr3 = transcript_3utr[transcript].to_i
@@ -271,9 +281,11 @@ module Sequence
           else
             triplet, offset, pos = codon.split ":"
             next if not triplet.length === 3
+            next if strand == 1
             original = Bio::Sequence::NA.new(triplet).translate
-            original_base = triplet[offset.to_i]
+            original_base = triplet.chars.to_a[offset.to_i]
             case 
+            when (alleles.length == 1 and alleles.first != original_base and alleles.first != Misc::BASE2COMPLEMENT[original_base])
             when (alleles.length == 1 and alleles.first == original_base)
               same += 1
             when (alleles.length == 1 and alleles.first != original_base)
@@ -353,14 +365,14 @@ module Sequence
         end
       end
 
-      mutated_isoforms[mutation] = [isoforms.collect{|transcript, change| 
+      mutated_isoforms[mutation] = isoforms.collect{|transcript, change| 
         if change =~ /^UTR/
           [transcript, change] * ":"
         else
           protein = transcript_to_protein[transcript]
           [protein, change] * ":"
         end
-      }]
+      }
     end
     mutated_isoforms
   end

@@ -74,7 +74,7 @@ module Sequence
     end
     @@transcript_5utr[key]
   end
-  
+   
   def self.transcript_3utr(organism)
     key = organism
     @@transcript_3utr ||= {}
@@ -82,6 +82,15 @@ module Sequence
       @@transcript_3utr[key] = Organism.transcript_3utr(organism).tsv(:single, :persist => true)
     end
     @@transcript_3utr[key]
+  end
+
+  def self.transcript_phase(organism)
+    key = organism
+    @@transcript_phase ||= {}
+    if @@transcript_phase[key].nil?
+      @@transcript_phase[key] = Organism.transcript_phase(organism).tsv(:single, :persist => true)
+    end
+    @@transcript_phase[key]
   end
 
   def self.snp_position_index(organism, chromosome)
