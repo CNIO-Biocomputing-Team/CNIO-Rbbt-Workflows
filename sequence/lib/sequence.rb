@@ -229,7 +229,6 @@ module Sequence
       utr5 = utr5.to_i
     end
 
-
     return "UTR5" if utr5 > offset
 
     sequence = transcript_sequence[transcript]
@@ -239,8 +238,12 @@ module Sequence
     utr3 = transcript_3utr[transcript].to_i
     return "UTR3" if ccds_offset > (sequence.length - utr3)
 
-    range = (utr5..-1)
-    sequence = sequence[range]
+    if utr5 >= 0
+      range = (utr5..-1)
+      sequence = sequence[range]
+    else
+      sequence = "N" * utr5.abs << sequence
+    end
 
     codon = ccds_offset / 3
     codon_offset =  ccds_offset % 3
