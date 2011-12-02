@@ -1,0 +1,20 @@
+genelist=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
+ workflow.rb
+ lib=lib {
+ }
+ test=test{
+ }
+ www=www {
+  views=views{
+   layout.haml
+   entity=entity{
+    Gene.haml
+    KeggPathway.haml
+
+    GO.haml
+    Nature.haml
+    Patient.haml
+    }
+  }
+ }
+}

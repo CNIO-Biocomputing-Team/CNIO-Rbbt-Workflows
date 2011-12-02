@@ -1,0 +1,102 @@
+%h3= entity
+
+- genotype = Preal.select{|genotype| genotype.jobname == entity}.first
+- type_counts = Misc.counts genotype.type
+
+%dl
+  %dt Tumor grade
+  %dd= entity.grade
+
+  %dt Smoking status
+  %dd= entity.smoking
+
+  %dt Affected Genes
+  %dd= list_with_number genotype.all_affected_genes
+
+  %dt Damaged Genes
+  %dd= list_with_number genotype.damaged_genes
+
+  %dt Recurrent Genes
+  %dd= list_with_number genotype.all_affected_genes.subset(Preal.recurrent_genes)
+
+  %dt Other Patients
+  %dd= Patient.setup(Preal.collect{|g| g.jobname}).sort.link * ", "
+
+  %dt Total number of mutations
+  %dd= genotype.length
+
+  %dt Transversions
+  %dd= type_counts["transversion"]
+
+  %dt Transitions
+  %dd= type_counts["transition"]
+
+  %dt Indel
+  %dd= type_counts["indel"]
+
+  %dt None
+  %dd
+    = type_counts["none"]
+    %p= genotype.select{|mutation| mutation.type == "none"} * ", "
+
+
+
+
+
+:javascript
+
+  $('#details span.number').click(function(){
+    var span = $(this);
+    var container = span.parent();
+    var items = container.find('p.genes').first()
+    items.toggle()
+  })
+
+  $('#details p.genes').hide()
+
+  $('#details span.kegg').click(function(){
+    var span = $(this);
+    var container = span.parent();
+    var table = container.find('div.kegg').first()
+    table.toggle()
+  })
+  $('#details div.kegg').hide()
+
+  $('#details span.go').click(function(){
+    var span = $(this);
+    var container = span.parent();
+    var table = container.find('div.go').first()
+    table.toggle()
+  })
+  $('#details div.go').hide()
+
+  $('#details span.nature').click(function(){
+    var span = $(this);
+    var container = span.parent();
+    var table = container.find('div.nature').first()
+    table.toggle()
+  })
+  $('#details div.nature').hide()
+
+  $('#details span.patients').click(function(){
+    var span = $(this);
+    var container = span.parent();
+    var table = container.find('div.patients').first()
+    table.toggle()
+  })
+  $('#details div.patients').hide()
+
+  $('#details ul.kegg_select > li').click(function(){
+    var li = $(this);
+    var pth = li.attr('attr-code');
+    var div = li.parents('div.patients').first();
+    var tbody = div.find('tbody');
+    var rows = tbody.find('tr');
+    var pth_rows = tbody.find('tr[attr-pathways*=' + pth + ']');
+
+    rows.removeClass("selected");
+
+    pth_rows.addClass("selected");
+    pth_rows.detach().appendTo(tbody);
+  })
+

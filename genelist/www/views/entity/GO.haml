@@ -1,0 +1,30 @@
+%h3= entity.name
+
+- if entity.description and entity.description.any?
+  %p
+    = entity.description
+    %a(href='http://www.ebi.ac.uk/QuickGO/GTerm?id=#{entity}') GO
+- else
+  %a(href='http://www.ebi.ac.uk/QuickGO/GTerm?id=#{entity}') GO
+
+- affected_genes = Preal.metagenotype.genes.flatten
+- term_genes = Organism.gene_go_bp(affected_genes.organism).tsv(:persist => true, :key_field => "GO ID", :fields => ["Ensembl Gene ID"], :type => :flat, :merge =>  true)[entity]
+- term_genes.organism = Preal.metagenotype.organism
+%dl
+
+  %dt Affected Genes in pathway
+  %dd= term_genes.subset(affected_genes).link * ", "
+
+  %dt Damaged Genes in pathway
+  %dd= Preal.metagenotype.damaged_genes.subset(term_genes).link * ", "
+
+  %dt All genes
+  %dd= term_genes.link * ", "
+
+  %dt Patients with affected genes in this pathway
+  %dd= Patient.setup(Preal.select{|genotype| genotype.genes.flatten.subset(term_genes).any?}.collect{|g| g.jobname}).link * ", "
+
+  %dt Patients with damaged genes in this pathway
+  %dd= Patient.setup(Preal.select{|genotype| genotype.genes.flatten.subset(term_genes).subset(Preal.metagenotype.damaged_genes).any?}.collect{|g| g.jobname}).link * ", "
+
+

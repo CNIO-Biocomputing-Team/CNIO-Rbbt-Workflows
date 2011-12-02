@@ -1,0 +1,22 @@
+%h3= entity.name
+
+- genes_in_pathway = entity.genes.ensembl
+
+%dl
+
+  %dt Affected Genes in pathway
+  %dd= Preal.metagenotype.all_affected_genes.subset(genes_in_pathway).link * ", "
+
+  %dt Damaged Genes in pathway
+  %dd= Preal.metagenotype.damaged_genes.subset(genes_in_pathway).link * ", "
+
+  %dt All Genes in pathway
+  %dd= genes_in_pathway.link * ", "
+
+  %dt Patients with affected genes in this pathway
+  %dd= Patient.setup(Preal.select{|genotype| genotype.genes.flatten.subset(genes_in_pathway).any?}.collect{|g| g.jobname}).link * ", "
+
+  %dt Patients with damaged genes in this pathway
+  %dd= Patient.setup(Preal.select{|genotype| genotype.genes.flatten.subset(genes_in_pathway).subset(Preal.metagenotype.damaged_genes).any?}.collect{|g| g.jobname}).link * ", "
+
+

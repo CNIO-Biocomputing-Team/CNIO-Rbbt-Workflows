@@ -1,0 +1,27 @@
+%h3= entity.name
+
+%a(href="http://jun2011.archive.ensembl.org/Homo_sapiens/Gene/Summary?g=#{entity.to "Ensembl Gene ID"}")= entity.to "Ensembl Gene ID"
+%a(href="http://www.ncbi.nlm.nih.gov/gene/#{entity.to "Entrez Gene ID"}")= entity.to "Entrez Gene ID"
+
+%dl
+
+  %dt Long name
+  %dd= entity.long_name
+
+  - if not entity.description.nil? and entity.description.any?
+    %dt Description
+    %dd= entity.description
+
+  %dt KEGG Pathways
+  %dd= entity.kegg_pathways.link * ", "
+
+  %dt GO Terms
+  %dd= entity.go_bp_terms.link * ", "
+
+%h4 Articles
+%ul
+  - entity.articles.sort_by{|article|  - article.to_i}.each do |article|
+    - next if article.title.nil?
+    %li
+      = [article.pubmed_url]
+      = article.title

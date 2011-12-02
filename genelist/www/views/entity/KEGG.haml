@@ -1,0 +1,25 @@
+%h3= entity.name
+
+- genes_in_pathway = Gene.setup(KEGG.index2genes[entity], "KEGG Gene ID", Preal.metagenotype.organism).from_kegg
+
+%dl
+  %dt Description
+  %dd= entity.description
+
+  %dt Affected Genes in pathway
+  %dd= Preal.metagenotype.all_affected_genes.subset(genes_in_pathway).link * ", "
+
+  %dt Damaged Genes in pathway
+  %dd= Preal.metagenotype.damaged_genes.subset(genes_in_pathway).link * ", "
+
+  %dt All Genes in pathway
+  %dd= genes_in_pathway.from_kegg.link * ", "
+
+  %dt Patients with affected genes in this pathway
+  %dd= Patient.setup(Preal.select{|genotype| genotype.genes.flatten.subset(genes_in_pathway).any?}.collect{|g| g.jobname}).link * ", "
+
+  %dt Patients with damaged genes in this pathway
+  %dd= Patient.setup(Preal.select{|genotype| genotype.genes.flatten.subset(genes_in_pathway).subset(Preal.metagenotype.damaged_genes).any?}.collect{|g| g.jobname}).link * ", "
+
+%img(src='http://www.genome.jp/kegg/pathway/hsa/#{entity}.png' style='width:100%;float:left;margin-right:10px;margin-botton:10px;' title='Click to see KEGG entry')
+
