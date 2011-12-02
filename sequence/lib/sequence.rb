@@ -256,64 +256,83 @@ module Sequence
   desc "Guess if mutations are given in watson or gene strand"
   input :organism, :string, "Organism code", "Hsa"
   input :mutations, :array, "Mutation Chr:Position:Mut (e.g. 19:54646887:A). Separator can be ':', space or tab. Extra fields are ignored"
-  def self.is_watson(organism, mutations)
+  def self.to_watson(organism, mutations)
     transcript_offsets = transcript_offsets_for_genomic_positions(organism, mutations)
  
-    same = 0
-    diff = 0
-    iupac_include = 0
-    iupac_exclude = 0
+    fixed = {}
+    mutations.each{|mutation| fixed[mutation] = mutation}
+
     transcript_offsets.each do |mutation, list|
       chr, pos, mut = mutation.split ":"
-      chr.sub!(/chr/,'')
-
-      case
-      when (mut.length == 1 and mut != '-')
-        alleles = Misc.IUPAC_to_base(mut) || []
-      else
-        next
-      end
-
-      list.collect{|t| t.split ":"}.each do |transcript, offset, strand|
-        offset = offset.to_i
-        begin
-          codon = codon_at_transcript_position(organism, transcript, offset)
-          case codon
-          when "UTR5", "UTR3"
-            next
-          else
-            triplet, offset, pos = codon.split ":"
-            next if not triplet.length === 3
-            next if strand == 1
-            original = Bio::Sequence::NA.new(triplet).translate
-            original_base = triplet.chars.to_a[offset.to_i]
-            case 
-            when (alleles.length == 1 and alleles.first != original_base and alleles.first != Misc::BASE2COMPLEMENT[original_base])
-            when (alleles.length == 1 and alleles.first == original_base)
-              same += 1
-            when (alleles.length == 1 and alleles.first != original_base)
-              diff += 1
-            when alleles.include?(original_base)
-              iupac_include += 1
-            else
-              iupac_exclude += 1
-            end
-          end
-        rescue
-          Log.debug $!.message
-        end
-      end
+      next unless Misc::BASE2COMPLEMENT.include? mut
+      fixed[mutation] = mutation.sub(mut, Misc::BASE2COMPLEMENT[mut]) if (list.any? and list.first.split(":")[2] == "-1")
     end
 
-    set_info :same, same
-    set_info :diff, diff
-    set_info :iupac_include, iupac_include
-    set_info :iupac_exclude, iupac_exclude
+    fixed.values_at *mutations
+  end
+  task :to_watson => :array
+  export_synchronous :to_watson
 
-    diff + iupac_include > same + iupac_exclude
+  desc "Guess if mutations are given in watson or gene strand"
+  input :organism, :string, "Organism code", "Hsa"
+  input :mutations, :array, "Mutation Chr:Position:Mut (e.g. 19:54646887:A). Separator can be ':', space or tab. Extra fields are ignored"
+  def self.is_watson(organism, mutations)
+    diffs = (mutations - to_watson(organism, mutations)).each
+
+    same = 0
+    opposite = 0
+    diffs.zip(reference_allele_at_genomic_positions(organism, diffs).values_at *diffs).each do |mutation, reference|
+      chr, pos, mut = mutation.split ":"
+      same += 1 if mut == reference
+      opposite += 1 if mut == Misc::BASE2COMPLEMENT[reference]
+    end
+
+    opposite > same
   end
   task :is_watson => :boolean
   export_synchronous :is_watson
+
+  desc "Reference allele at positions in a chromosome"
+  input :organism, :string, "Organism code", "Hsa"
+  input :chromosome, :string, "Chromosome name"
+  input :positions, :array, "Positions"
+  def self.reference_allele_at_chr_positions(organism, chromosome, positions)
+    File.open(Organism[File.join(organism, "chromosome_#{chromosome}")].produce.find) do |f|
+      Misc.process_to_hash(positions.sort){|list| list.collect{|position| f.seek(position.to_i - 1); f.getc.chr }}.values_at *positions
+    end
+  end
+  task :reference_allele_at_chr_positions => :array
+  export_exec :reference_allele_at_chr_positions
+
+  desc "Reference allele at genomic positions"
+  input :organism, :string, "Organism code", "Hsa"
+  input :positions, :array, "Positions Chr:Position (e.g. 19:54646887). Separator can be ':', space or tab. Extra fields are ignored"
+  def self.reference_allele_at_genomic_positions(organism, positions)
+    chr_positions = {}
+
+    positions.each do |position|
+      chr, pos = position.split(/[\s:\t]/).values_at 0, 1
+      chr.sub!(/chr/,'')
+      chr_positions[chr] ||= []
+      chr_positions[chr] << pos
+    end
+
+    chr_bases = {}
+    chr_positions.each do |chr, list|
+      chr_bases[chr] = reference_allele_at_chr_positions(organism, chr, list)
+    end
+
+    tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Reference Allele"], :type => :single)
+    positions.collect do |position|
+      chr, pos = position.split(/[\s:\t]/).values_at 0, 1
+      chr.sub!(/chr/,'')
+      tsv[position] = chr_bases[chr].shift
+    end
+    tsv
+  end
+  task :reference_allele_at_genomic_positions=> :tsv
+  export_synchronous :reference_allele_at_genomic_positions
+
 
   desc "Mutated protein isoforms"
   input :organism, :string, "Organism code", "Hsa"
@@ -418,4 +437,45 @@ module Sequence
   end
   task :snps_at_genomic_positions => :tsv
   export_asynchronous :snps_at_genomic_positions
+
+  desc "Find genes at particular ranges in a chromosome. Multiple values separated by '|'"
+  input :organism, :string, "Organism code", "Hsa"
+  input :chromosome, :string, "Chromosome name"
+  input :ranges, :array, "Ranges"
+  def self.genes_at_chr_ranges(organism, chromosome, ranges)
+    index = gene_position_index(organism, chromosome)
+    r = ranges.collect{|r| s,e = r.split(":"); (s.to_i..e.to_i)}
+    index.values_at(*r).collect{|list| list * "|"}
+  end
+  task :genes_at_chr_ranges => :array
+  export_exec :genes_at_chr_ranges
+
+  desc "Find genes at particular genomic ranges. Multiple values separated by '|'"
+  input :organism, :string, "Organism code", "Hsa"
+  input :ranges, :array, "Positions Chr:Start:End (e.g. 11:533766:553323)"
+  def self.genes_at_genomic_ranges(organism, ranges)
+    chr_ranges = {}
+    ranges.each do |range|
+      chr, s, e = range.split(":").values_at 0, 1, 2
+      chr.sub!(/chr/,'')
+      chr_ranges[chr] ||= []
+      chr_ranges[chr] << [s, e] * ":" 
+    end
+
+    chr_genes = {}
+    chr_ranges.each do |chr, list|
+      chr_genes[chr] = genes_at_chr_ranges(organism, chr, list)
+    end
+
+    tsv = TSV.setup({}, :key_field => "Genomic Range", :fields => ["Ensembl Gene ID"], :type => :flat)
+    ranges.collect do |range|
+      chr, s, e = range.split(":").values_at 0, 1, 2
+      chr.sub!(/chr/,'')
+      tsv[range] = chr_genes[chr].shift.split("|")
+    end
+    tsv
+  end
+  task :genes_at_genomic_ranges => :tsv
+  export_synchronous :genes_at_genomic_ranges
+
 end

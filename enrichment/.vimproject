@@ -1,0 +1,11 @@
+enrichment=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
+ workflow.rb
+ lib=lib {
+ }
+ test=test{
+ }
+ www=www {
+  annotate_gene_list=annotate_gene_list{
+   }
+ }
+}
