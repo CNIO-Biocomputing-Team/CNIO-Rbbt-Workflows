@@ -11,7 +11,7 @@ require 'rbbt/sources/organism'
 require 'rbbt/sources/NCI'
 require 'rbbt/sources/pfam'
 
-[Gene, GOTerm, KeggPathway, NCINaturePathways, NCIBioCartaPathways, NCIReactomePathways, PfamDomain].each do |mod|
+[Gene, GOTerm, KeggPathway, NCINaturePathway, NCIBioCartaPathway, NCIReactomePathway, PfamDomain].each do |mod|
   mod.module_eval do
     include Entity::REST
   end
