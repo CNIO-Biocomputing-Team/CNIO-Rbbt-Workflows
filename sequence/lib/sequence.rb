@@ -4,6 +4,46 @@ module Sequence
   extend Workflow
   extend Resource
 
+  desc "Find genes at particular ranges in a chromosome. Multiple values separated by '|'"
+  input :organism, :string, "Organism code", "Hsa"
+  input :chromosome, :string, "Chromosome name"
+  input :ranges, :array, "Positions"
+  def self.genes_at_chr_ranges(organism, chromosome, ranges)
+    index = gene_range_index(organism, chromosome)
+    index.values_at(*ranges.collect{|s,e| (s..e)}.collect{|list| list * "|"})
+  end
+  task :genes_at_chr_ranges => :array
+  export_exec :genes_at_chr_ranges
+
+  desc "Find genes at particular genomic ranges. Multiple values separated by '|'"
+  input :organism, :string, "Organism code", "Hsa"
+  input :ranges, :array, "Positions Chr:Start:End (e.g. 11:533766:533990). Separator can be ':', space or tab. Extra fields are ignored"
+  def self.genes_at_genomic_ranges(organism, ranges)
+    chr_ranges = {}
+    ranges.each do |range|
+      chr, start, eend = range.split(/[\s:\t]/).values_at 0, 1, 2
+      chr.sub!(/chr/,'')
+      chr_ranges[chr] ||= []
+      chr_ranges[chr] << [start,eend] * ":"
+    end
+
+    chr_genes = {}
+    chr_ranges.each do |chr, list|
+      chr_genes[chr] = genes_at_chr_ranges(organism, chr, list)
+    end
+
+    tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Ensembl Gene ID"], :type => :flat)
+    ranges.collect do |range|
+      chr, start, eend = range.split(/[\s:\t]/).values_at 0, 1, 2
+      chr.sub!(/chr/,'')
+      tsv[[start, eend] * ":"] = chr_genes[chr].shift.split("|")
+    end
+    tsv
+  end
+  task :genes_at_genomic_ranges => :tsv
+  export_synchronous :genes_at_genomic_ranges
+
+
   desc "Find genes at particular positions in a chromosome. Multiple values separated by '|'"
   input :organism, :string, "Organism code", "Hsa"
   input :chromosome, :string, "Chromosome name"
@@ -375,7 +415,7 @@ module Sequence
               when "FrameShift"
                 isoforms << [transcript, [original, pos.to_i + 1, "FrameShift"] * ""]
               else
-                allele = Misc::BASE2COMPLEMENT[allele] if not watson and strand.to_i == -1
+                allele = Misc::BASE2COMPLEMENT[allele] if watson and strand.to_i == -1
                 triplet[offset.to_i] = allele 
                 new = Bio::Sequence::NA .new(triplet).translate
                 isoforms << [transcript, [original, pos.to_i + 1, new] * ""]
