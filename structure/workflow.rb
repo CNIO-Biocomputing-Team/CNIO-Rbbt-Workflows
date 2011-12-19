@@ -2,8 +2,6 @@ require 'rbbt'
 require 'rbbt/util/misc'
 require 'rbbt/workflow'
 require 'rbbt/sources/organism'
-require 'cath'
-require 'uniprot'
 
 Workflow.require_workflow 'Translation'
 module Structure
