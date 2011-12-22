@@ -88,7 +88,7 @@ module Enrichment
   def self.enrichment(database, list, organism, cutoff, fdr)
     ensembl = Translation.job(:translate, nil, :format => "Ensembl Gene ID", :genes => list, :organism => organism).run
     Gene.setup(ensembl, "Ensembl Gene ID", "Hsa")
-    case database.downcase
+    case database.to_s.downcase
     when "kegg"
       res = Enrichment.kegg_enrichment(ensembl.to_kegg, cutoff, fdr)
       res.namespace = organism
