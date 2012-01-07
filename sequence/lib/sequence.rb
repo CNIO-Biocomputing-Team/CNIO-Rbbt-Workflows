@@ -2,7 +2,6 @@ require 'indices'
 
 module Sequence
   extend Workflow
-  extend Resource
 
   desc "Find genes at particular ranges in a chromosome. Multiple values separated by '|'"
   input :organism, :string, "Organism code", "Hsa"
@@ -327,6 +326,7 @@ module Sequence
       opposite += 1 if mut == Misc::BASE2COMPLEMENT[reference]
     end
 
+    log(:counts, "Opposite: #{ opposite }. Same: #{ same }")
     opposite > same
   end
   task :is_watson => :boolean

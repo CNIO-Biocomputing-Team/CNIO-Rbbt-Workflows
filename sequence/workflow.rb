@@ -8,7 +8,6 @@ require 'bio'
 Workflow.require_workflow 'Mutation'
 module Sequence
   extend Workflow
-  extend Resource
 
   desc "Upload genotype"
   input :organism, :string, "Organism code", "Hsa"
