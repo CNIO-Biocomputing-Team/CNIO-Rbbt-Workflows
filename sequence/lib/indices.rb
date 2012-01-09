@@ -105,5 +105,17 @@ module Sequence
     @@snp_position[key]
   end
 
+  def self.somatic_snv_position_index(organism, chromosome)
+    key = [organism, chromosome]
+    @@snv_position ||= {}
+    @@germline_variations ||= Organism.germline_variations(organism).tsv :persist => true
+    if @@snv_position[key].nil?
+      @@germline_variations.filter
+      @@germline_variations.add_filter "field:Chromosome Name", chromosome
+      @@snv_position[key] = @@germline_variations.pos_index("Chromosome Start", :persist => true) #TSV.pos_index(Organism.germline_variations(organism), "Chromosome Start", :filters => [["field:Chromosome Name", chromosome]], :persist => true, :data_persist => true, :monitor => true)
+    end
+    @@snv_position[key]
+  end
+
 
 end
