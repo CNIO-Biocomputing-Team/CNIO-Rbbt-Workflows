@@ -257,7 +257,7 @@ module Sequence
   input :mutations, :array, "Mutation Chr:Position:Mut (e.g. 19:54646887:A). Separator can be ':', space or tab. Extra fields are ignored"
   def self.to_watson(organism, mutations)
     transcript_offsets = transcript_offsets_for_genomic_positions(organism, mutations)
- 
+
     fixed = {}
     mutations.each{|mutation| fixed[mutation] = mutation}
 
@@ -297,8 +297,17 @@ module Sequence
   input :chromosome, :string, "Chromosome name"
   input :positions, :array, "Positions"
   def self.reference_allele_at_chr_positions(organism, chromosome, positions)
-    File.open(Organism[File.join(organism, "chromosome_#{chromosome}")].produce.find) do |f|
-      Misc.process_to_hash(positions.sort){|list| list.collect{|position| f.seek(position.to_i - 1); f.getc.chr }}.values_at *positions
+    begin
+      File.open(Organism[File.join(organism, "chromosome_#{chromosome}")].produce.find) do |f|
+        Misc.process_to_hash(positions.sort){|list| list.collect{|position| f.seek(position.to_i - 1); c = f.getc; c.nil? ? nil : c.chr }}.values_at *positions
+      end
+    rescue
+      if $!.message =~ /Fasta file for chromosome not found/i
+        Log.low $!.message
+        ["?"] * positions.length
+      else
+        raise $!
+      end
     end
   end
   task :reference_allele_at_chr_positions => :array
@@ -532,7 +541,7 @@ module Sequence
   input :chromosome, :string, "Chromosome name"
   input :ranges, :array, "Ranges"
   def self.somatic_snvs_at_chr_ranges(organism, chromosome, ranges)
-    index = snp_position_index(organism, chromosome)
+    index = somatic_snv_position_index(organism, chromosome)
     r = ranges.collect{|r| s,e = r.split(":"); (s.to_i..e.to_i)}
     index.values_at(*r).collect{|list| list * "|"}
   end

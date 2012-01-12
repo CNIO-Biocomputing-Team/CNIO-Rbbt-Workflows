@@ -108,7 +108,7 @@ module Sequence
   def self.somatic_snv_position_index(organism, chromosome)
     key = [organism, chromosome]
     @@snv_position ||= {}
-    @@germline_variations ||= Organism.germline_variations(organism).tsv :persist => true
+    @@germline_variations ||= Organism.somatic_variations(organism).tsv :persist => true
     if @@snv_position[key].nil?
       @@germline_variations.filter
       @@germline_variations.add_filter "field:Chromosome Name", chromosome
