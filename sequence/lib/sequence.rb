@@ -196,7 +196,7 @@ module Sequence
       list.each do |exon, offset, strand|
         Misc.zip_fields(exon_transcript_offsets[exon]).each do |transcript, exon_offset|
           offsets << [transcript, exon_offset.to_i + offset, strand] * ":"
-        end
+        end if exon_transcript_offsets.include? exon
       end
       tsv[position] = offsets
     end
