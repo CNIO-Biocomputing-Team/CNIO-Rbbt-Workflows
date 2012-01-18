@@ -554,6 +554,7 @@ module Sequence
   def self.somatic_snvs_at_genomic_ranges(organism, ranges)
     chr_ranges = {}
     ranges.each do |range|
+      next if range.nil? or range.empty?
       chr, s, e = range.split(":").values_at 0, 1, 2
       chr.sub!(/chr/,'')
       chr_ranges[chr] ||= []
@@ -566,7 +567,8 @@ module Sequence
     end
 
     tsv = TSV.setup({}, :key_field => "Genomic Range", :fields => ["SNP ID"], :type => :flat)
-    ranges.collect do |range|
+    ranges.each do |range|
+      next if range.nil? or range.empty?
       chr, s, e = range.split(":").values_at 0, 1, 2
       chr.sub!(/chr/,'')
       tsv[range] = chr_somatic_snvs[chr].shift.split("|")

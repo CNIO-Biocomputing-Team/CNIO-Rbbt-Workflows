@@ -2,6 +2,7 @@ require 'rbbt'
 require 'rbbt/util/misc'
 require 'rbbt/workflow'
 require 'rbbt/sources/organism'
+require 'rbbt/sources/uniprot'
 
 Workflow.require_workflow 'Translation'
 module Structure
@@ -119,4 +120,93 @@ module Structure
   end
   task :protein_variant_analysis => :tsv
   export_synchronous :protein_variant_analysis
+
+  input :protein_ranges, :array, "Protein ranges e.g.: ENSP00001203123:234:344"
+  input :organism, :string, "Organism code", "Hsa"
+  task :uniprot_variants_over_protein_ranges => :tsv do |protein_ranges, organism|
+    uniprot_variants = UniProt.annotated_variants.tsv :key_field => "UniProt/SwissProt Accession", :persist => true, :merge => true, :type => :double
+    proteins = {}
+
+    protein_ranges.collect do |line|
+      next unless line =~ /:/
+      protein, start, eend = line.split(":")
+
+      proteins[protein] ||= []
+      proteins[protein] << (start.to_i..eend.to_i)
+    end
+
+    all_proteins = proteins.keys
+
+    protein2uniprot = Misc.process_to_hash(all_proteins){|list| Translation.job(:translate_protein, "Structure[uniprot_variants_over_protein_range]", :proteins => all_proteins, :organism => organism, :format => "UniProt/SwissProt Accession").run}
+
+    results = TSV.setup({}, :key_field => "Protein Range", :fields => ["UniProt Variant ID"], :type => :flat)
+    aam_pos = uniprot_variants.identify_field "Amino Acid Mutation"
+    uniprot_var_pos = uniprot_variants.identify_field "UniProt Variant ID"
+    proteins.collect{|protein, ranges|
+      uniprot = protein2uniprot[protein]
+
+      ranges.each do |range|
+        next unless uniprot_variants.include? uniprot
+        results[[protein, range.begin, range.end] * ":"] =  
+          uniprot_variants[uniprot].zip_fields.select{|values|  range.include? values[aam_pos].scan(/\d+/)[0].to_i}.collect{|values| values[uniprot_var_pos]}
+      end
+    }
+
+    results
+  end
+  export_exec :uniprot_variants_over_protein_ranges
+
+  input :sequence, :text, "Protein sequence"
+  input :position, :integer, "Position within protein sequence"
+  input :pdb, :string, "Name of pdb to align"
+  task :sequence_position_in_pdb => :yaml do |protein_sequence, protein_position, pdb|
+    Log.debug "Amino acid in sequence position #{ protein_position }: #{protein_sequence[protein_position - 1].chr}"
+    atoms = CMD.cmd('grep "^ATOM"', :in => Open.read("http://www.pdb.org/pdb/files/#{ pdb }.pdb.gz")).read
+
+    chains = {}
+    atoms.split("\n").each do |line|
+      chain = line[20..21].strip
+      aapos = line[22..25].to_i
+      aa    = line[17..19]
+      
+      next if aapos < 0
+
+      chains[chain] ||= Array.new
+      chains[chain][aapos] = aa
+    end
+
+    alignments = {}
+    chains.each do |chain,chain_sequence|
+      log "Pdb #{ pdb}, chain #{ chain }."
+
+      chain_sequence = chain_sequence.collect{|aa| aa.nil? ? '?' : Misc::THREE_TO_ONE_AA_CODE[aa.downcase]} * ""
+
+      protein_aligment, chain_aligment = Misc.fast_align(protein_sequence, chain_sequence)
+
+      non_gaps = 0
+      chars = 0
+      while non_gaps < protein_position do
+        non_gaps +=1 if protein_aligment[chars].chr != '-'
+        chars += 1
+      end
+
+      protein_position_in_aligment = protein_position + (chars - non_gaps)
+
+      alignments[chain] = if chain_aligment[protein_position_in_aligment].chr == '-'
+                            nil
+                          else
+                            chain_position = chain_aligment[(0..protein_position_in_aligment- 1)].chars.select{|c| c != '-'}.length
+
+                            if protein_sequence[protein_position - 1] != chain_sequence[chain_position - 1]
+                              Log.debug "Not equal: #{protein_sequence[protein_position-4..protein_position+2]} => #{chain_sequence[chain_position-4..chain_position+2]}"
+                            else
+                              Log.debug "Equal: #{protein_sequence[protein_position-4..protein_position+2]} => #{chain_sequence[chain_position-4..chain_position+2]}"
+                              chain_position
+                            end
+                          end
+    end
+
+    alignments
+  end
+  export_exec :sequence_position_in_pdb
 end
