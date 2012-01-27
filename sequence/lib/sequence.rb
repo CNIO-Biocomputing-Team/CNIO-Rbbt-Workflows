@@ -319,24 +319,28 @@ module Sequence
   def self.reference_allele_at_genomic_positions(organism, positions)
     chr_positions = {}
 
+    log :parsing, "Parsing positions"
     positions.each do |position|
-      chr, pos = position.split(/[\s:\t]/).values_at 0, 1
+      chr, pos = position.split(/[\s:\t]/)
       chr.sub!(/chr/,'')
       chr_positions[chr] ||= []
       chr_positions[chr] << pos
     end
 
+    log :processing, "Processing chromosome positions"
     chr_bases = {}
     chr_positions.each do |chr, list|
       chr_bases[chr] = reference_allele_at_chr_positions(organism, chr, list)
     end
 
+    log :loading, "Loading results"
     tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Reference Allele"], :type => :single)
     positions.collect do |position|
       chr, pos = position.split(/[\s:\t]/).values_at 0, 1
       chr.sub!(/chr/,'')
       tsv[position] = chr_bases[chr].shift
     end
+
     tsv
   end
   task :reference_allele_at_genomic_positions=> :tsv
@@ -357,6 +361,10 @@ module Sequence
       chr, pos, mut = mutation.split ":"
       chr.sub!(/chr/,'')
       case
+      when mut.nil?
+        alleles = []
+      when mut.index(',')
+        alleles = mut.split(",").collect{|m| Misc.IUPAC_to_base(m.strip)}.compact.flatten
       when (mut.length == 1 and mut != '-')
         alleles = Misc.IUPAC_to_base(mut) || []
       when (mut.length % 3 == 0)
