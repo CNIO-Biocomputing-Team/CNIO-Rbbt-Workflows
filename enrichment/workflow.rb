@@ -41,6 +41,32 @@ module Enrichment
   input :list, :array, "Ensembl Gene ID"
   input :cutoff, :float, "Cufoff value", 0.05
   input :fdr, :boolean, "Perform Benjamini-Hochberg FDR correction", true
+  def self.go_cc_enrichment(organism, list, cutoff, fdr)
+    res = Organism.gene_go_cc(organism).tsv(:persist => true).enrichment(list, "GO ID", :persist => true, :cutoff => cutoff, :fdr => fdr)
+    res.namespace = organism
+    res
+  end
+  task :go_cc_enrichment=> :tsv
+  export_synchronous :go_cc_enrichment
+
+
+  input :organism, :string, "Organism code", "Hsa"
+  input :list, :array, "Ensembl Gene ID"
+  input :cutoff, :float, "Cufoff value", 0.05
+  input :fdr, :boolean, "Perform Benjamini-Hochberg FDR correction", true
+  def self.go_mf_enrichment(organism, list, cutoff, fdr)
+    res = Organism.gene_go_mf(organism).tsv(:persist => true).enrichment(list, "GO ID", :persist => true, :cutoff => cutoff, :fdr => fdr)
+    res.namespace = organism
+    res
+  end
+  task :go_mf_enrichment=> :tsv
+  export_synchronous :go_mf_enrichment
+
+
+  input :organism, :string, "Organism code", "Hsa"
+  input :list, :array, "Ensembl Gene ID"
+  input :cutoff, :float, "Cufoff value", 0.05
+  input :fdr, :boolean, "Perform Benjamini-Hochberg FDR correction", true
   def self.pfam_enrichment(organism, list, cutoff, fdr)
     res = Organism.gene_pfam(organism).tsv(:persist => true).enrichment(list, "Pfam Domain", :persist => true, :cutoff => cutoff, :fdr => fdr)
     res.namespace = organism
@@ -80,7 +106,7 @@ module Enrichment
   task :nature_enrichment=> :tsv
   export_synchronous :nature_enrichment
 
-  input :database, :string, "Database code: Kegg, GO_BP"
+  input :database, :string, "Database code: Kegg, Nature, Reactome, BioCarta, GO_BP, GO_CC, GO_MF"
   input :list, :array, "Gene list in the appropriate format"
   input :organism, :string, "Organism code (not used for kegg)", "Hsa"
   input :cutoff, :float, "Cufoff value", 0.05
@@ -94,11 +120,25 @@ module Enrichment
       TSV.setup(res, :key_field => "KEGG Gene ID", :fields => ["p-value", "KEGG Pathway ID"]) unless TSV === res
       res.namespace = organism
       res
+
     when "go", "go bp", "go_bp"
       res = Enrichment.go_bp_enrichment(organism, ensembl, cutoff, fdr)
       TSV.setup(res, :key_field => "Ensembl Gene ID", :fields => ["p-value", "GO Term ID"]) unless TSV === res
       res.namespace = organism
       res
+
+    when "go mf", "go_mf"
+      res = Enrichment.go_mf_enrichment(organism, ensembl, cutoff, fdr)
+      TSV.setup(res, :key_field => "Ensembl Gene ID", :fields => ["p-value", "GO Term ID"]) unless TSV === res
+      res.namespace = organism
+      res
+
+    when "go cc", "go_cc"
+      res = Enrichment.go_cc_enrichment(organism, ensembl, cutoff, fdr)
+      TSV.setup(res, :key_field => "Ensembl Gene ID", :fields => ["p-value", "GO Term ID"]) unless TSV === res
+      res.namespace = organism
+      res
+ 
     when "reactome"
       res = Enrichment.reactome_enrichment(ensembl.to("UniProt/SwissProt Accession"), cutoff, fdr)
       TSV.setup(res, :key_field => "UniProt/SwissProt Accession", :fields => ["p-value", "NCI Reactome Pathway ID"]) unless TSV === res
