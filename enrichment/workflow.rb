@@ -3,6 +3,7 @@ require 'rbbt/util/misc'
 require 'rbbt/workflow'
 require 'rbbt/workflow/rest/entity'
 require 'rbbt/statistics/hypergeometric'
+require 'rbbt/statistics/random_walk'
 require 'rbbt/entity'
 require 'rbbt/entity/gene'
 require 'rbbt/sources/go'
@@ -24,6 +25,19 @@ module Enrichment
   end
   task :kegg_enrichment=> :tsv
   export_synchronous :kegg_enrichment
+
+  input :organism, :string, "Organism code", "Hsa"
+  input :list, :array, "Ensembl Gene ID"
+  input :cutoff, :float, "Cufoff value", 0.05
+  input :fdr, :boolean, "Perform Benjamini-Hochberg FDR correction", true
+  def self.biotype_enrichment(organism, list, cutoff, fdr)
+    res = Organism.gene_biotype(organism).tsv(:persist => true).enrichment(list, "Biotype", :persist => true, :cutoff => cutoff, :fdr => fdr)
+    res.namespace = organism
+    res
+  end
+  task :biotype_enrichment=> :tsv
+  export_synchronous :biotype_enrichment
+
 
   input :organism, :string, "Organism code", "Hsa"
   input :list, :array, "Ensembl Gene ID"
@@ -126,6 +140,12 @@ module Enrichment
       TSV.setup(res, :key_field => "Ensembl Gene ID", :fields => ["p-value", "GO Term ID"]) unless TSV === res
       res.namespace = organism
       res
+      
+    when "biotype"
+      res = Enrichment.biotype_enrichment(organism, ensembl, cutoff, fdr)
+      TSV.setup(res, :key_field => "Ensembl Gene ID", :fields => ["p-value", "Biotype"]) unless TSV === res
+      res.namespace = organism
+      res
 
     when "go mf", "go_mf"
       res = Enrichment.go_mf_enrichment(organism, ensembl, cutoff, fdr)
@@ -165,4 +185,85 @@ module Enrichment
   end
   task :enrichment => :tsv
   export_synchronous :enrichment
+
+  input :list, :array, "KEGG Gene ID"
+  input :hits, :array, "KEGG Gene ID"
+  def self.rank_enrichment_for_list(list, hits)
+    list.extend OrderedList
+    list.pvalue hits
+  end
+  task :rank_enrichment_for_list => :float
+  export_synchronous :rank_enrichment_for_list
+
+
+  input :database, :string, "Database code: Kegg, Nature, Reactome, BioCarta, GO_BP, GO_CC, GO_MF"
+  input :list, :array, "Gene list in the appropriate format"
+  input :organism, :string, "Organism code (not used for kegg)", "Hsa"
+  input :cutoff, :float, "Cufoff value", 0.05
+  input :fdr, :boolean, "Perform Benjamini-Hochberg FDR correction", true
+  input :permutations, :integer, "Number of permutatoins to find pvalue", 1000
+  def self.rank_enrichment(database, list, organism, cutoff, fdr, permutations)
+    ensembl = Translation.job(:translate, nil, :format => "Ensembl Gene ID", :genes => list, :organism => organism).run
+    Gene.setup(ensembl, "Ensembl Gene ID", "Hsa")
+    case database.to_s.downcase
+    when "kegg"
+      res = KEGG.gene_pathway.tsv(:persist => true, :key_field => "KEGG Pathway ID", :fields => ["KEGG Gene ID"], :merge => true, :type => :flat).
+        rank_enrichment(ensembl.to_kegg.clean_annotations, :fdr => fdr, :permutations => permutations).select("p-value"){|pvalue| pvalue < cutoff}
+
+      res.namespace = organism
+      res
+
+    #when "go", "go bp", "go_bp"
+    #  res = Enrichment.go_bp_enrichment(organism, ensembl, cutoff, fdr)
+    #  TSV.setup(res, :key_field => "Ensembl Gene ID", :fields => ["p-value", "GO Term ID"]) unless TSV === res
+    #  res.namespace = organism
+    #  res
+    #  
+    #when "biotype"
+    #  res = Enrichment.biotype_enrichment(organism, ensembl, cutoff, fdr)
+    #  TSV.setup(res, :key_field => "Ensembl Gene ID", :fields => ["p-value", "Biotype"]) unless TSV === res
+    #  res.namespace = organism
+    #  res
+
+    #when "go mf", "go_mf"
+    #  res = Enrichment.go_mf_enrichment(organism, ensembl, cutoff, fdr)
+    #  TSV.setup(res, :key_field => "Ensembl Gene ID", :fields => ["p-value", "GO Term ID"]) unless TSV === res
+    #  res.namespace = organism
+    #  res
+
+    #when "go cc", "go_cc"
+    #  res = Enrichment.go_cc_enrichment(organism, ensembl, cutoff, fdr)
+    #  TSV.setup(res, :key_field => "Ensembl Gene ID", :fields => ["p-value", "GO Term ID"]) unless TSV === res
+    #  res.namespace = organism
+    #  res
+ 
+    #when "reactome"
+    #  res = Enrichment.reactome_enrichment(ensembl.to("UniProt/SwissProt Accession"), cutoff, fdr)
+    #  TSV.setup(res, :key_field => "UniProt/SwissProt Accession", :fields => ["p-value", "NCI Reactome Pathway ID"]) unless TSV === res
+    #  res.namespace = organism
+    #  res
+    #when "nature"
+    #  res = Enrichment.nature_enrichment(ensembl.to("UniProt/SwissProt Accession"), cutoff, fdr)
+    #  TSV.setup(res, :key_field => "UniProt/SwissProt Accession", :fields => ["p-value", "NCI Nature Pathway ID"]) unless TSV === res
+    #  res.namespace = organism
+    #  res
+    #when "biocarta"
+    #  res = Enrichment.biocarta_enrichment(ensembl.entrez, cutoff, fdr)
+    #  TSV.setup(res, :key_field => "Entrez Gene ID", :fields => ["p-value", "NCI Biocarta Pathway ID"]) unless TSV === res
+    #  res.namespace = organism
+    #  res
+    #when "pfam"
+    #  res = Enrichment.pfam_enrichment(organism, ensembl, cutoff, fdr)
+    #  TSV.setup(res, :key_field => "Ensembl Gene ID", :fields => ["p-value", "Pfam Domain ID"]) unless TSV === res
+    #  res.namespace = organism
+    #  res
+    else
+      raise "Unknown database code: #{ database }"
+    end
+  end
+  task :rank_enrichment=> :tsv
+  export_synchronous :rank_enrichment
+
+
+  
 end
