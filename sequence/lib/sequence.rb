@@ -97,17 +97,17 @@ module Sequence
       pos = pos.to_i
       junctions = []
 
-      end_exons = end_index[pos - 3..pos + 3]
-      start_exons = start_index[pos - 3..pos + 3]
+      end_exons = end_index[pos - 10..pos + 10]
+      start_exons = start_index[pos - 10..pos + 10]
 
       end_exons.each do |exon|
         strand, eend = exon_info[exon].values_at strand_field_pos, end_field_pos
         eend = eend.to_i
         diff = pos - eend
         case
-        when (strand == "1" and diff.abs <= 2)
+        when (strand == "1" and diff >= -8 and diff <= 2)
           junctions << exon + ":acceptor(#{diff})"
-        when (strand == "-1" and diff.abs <= 2)
+        when (strand == "-1" and diff >= -2 and diff <= 8)
           junctions << exon + ":donor(#{diff})"
         end
       end
@@ -118,9 +118,9 @@ module Sequence
         diff = pos - start
 
         case
-        when (strand == "1" and diff.abs <= 2)
+        when (strand == "-1" and diff >= -2 and diff <= 8)
           junctions << exon + ":donor(#{diff})"
-        when (strand == "-1" and diff.abs <= 2)
+        when (strand == "1" and diff >= -8 and diff <= 2)
           junctions << exon + ":acceptor(#{diff})"
         end
       end
@@ -157,7 +157,7 @@ module Sequence
     tsv
   end
   task :exon_junctions_at_genomic_positions => :tsv
-  export_asynchronous :exon_junctions_at_genomic_positions
+  export_synchronous :exon_junctions_at_genomic_positions
 
   desc "Transcript offsets of genomic prositions. transcript:offset:strand"
   input :organism, :string, "Organism code", "Hsa"
