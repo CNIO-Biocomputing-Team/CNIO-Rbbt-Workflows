@@ -105,10 +105,10 @@ module Sequence
         eend = eend.to_i
         diff = pos - eend
         case
-        when (strand == "1" and diff >= -8 and diff <= 2)
-          junctions << exon + ":acceptor(#{diff})"
-        when (strand == "-1" and diff >= -3 and diff <= 8)
+        when (strand == "1" and diff <= 8 and diff >= -2)
           junctions << exon + ":donor(#{diff})"
+        when (strand == "-1" and diff <= 8 and diff >= -3)
+          junctions << exon + ":acceptor(#{diff})"
         end
       end
 
@@ -118,10 +118,10 @@ module Sequence
         diff = pos - start
 
         case
-        when (strand == "-1" and diff >= -3 and diff <= 8)
-          junctions << exon + ":donor(#{diff})"
         when (strand == "1" and diff >= -8 and diff <= 2)
           junctions << exon + ":acceptor(#{diff})"
+        when (strand == "-1" and diff >= -8 and diff <= 3)
+          junctions << exon + ":donor(#{diff})"
         end
       end
 
