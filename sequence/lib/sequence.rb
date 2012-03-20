@@ -367,7 +367,9 @@ module Sequence
         alleles = mut.split(",").collect{|m| Misc.IUPAC_to_base(m.strip)}.compact.flatten
       when (mut.length == 1 and mut != '-')
         alleles = Misc.IUPAC_to_base(mut) || []
-      when (mut.length % 3 == 0)
+      when (mut[0] == "+"[0] and mut.length % 4 == 0)
+        alleles = ["Indel"]
+      when (mut[0] == "-"[0] and mut.length % 3 == 0)
         alleles = ["Indel"]
       else
         alleles = ["FrameShift"]

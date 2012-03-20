@@ -11,8 +11,6 @@ module Sequence
   end
 
   def self.exon_position_index(organism, chromosome)
-    ddd organism
-    ddd chromosome
     key = [organism, chromosome]
     @@exon_position ||= {}
     if @@exon_position[key].nil?
