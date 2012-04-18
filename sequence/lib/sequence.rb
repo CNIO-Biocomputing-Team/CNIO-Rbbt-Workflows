@@ -149,11 +149,12 @@ module Sequence
     end
 
     tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Exon Junction"], :type => :flat)
-    positions.collect do |position|
-      chr, pos = position.split(/[\s:\t]/).values_at 0, 1
+    positions.each do |position|
+      chr, pos = position.strip.split(/[\s:\t]/).values_at 0, 1
       chr.sub!(/chr/,'')
       tsv[position] = chr_exon_junctions[chr].shift.split("|")
     end
+
     tsv
   end
   task :exon_junctions_at_genomic_positions => :tsv

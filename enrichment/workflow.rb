@@ -265,40 +265,4 @@ module Enrichment
   end
   task :rank_enrichment=> :tsv
   export_synchronous :rank_enrichment
-
-  input :database, :string, "Database code: Kegg, Nature, Reactome, BioCarta, GO_BP, GO_CC, GO_MF"
-  input :list, :array, "Gene list in the appropriate format"
-  input :organism, :string, "Organism code (not used for kegg)", "Hsa"
-  input :cutoff, :float, "Cufoff value", 0.05
-  input :fdr, :boolean, "Perform Benjamini-Hochberg FDR correction", true
-  def self.exome_enrichment(database, list, organism, cutoff, fdr, permutations)
-    ensembl = Translation.job(:translate, nil, :format => "Ensembl Gene ID", :genes => list, :organism => organism).run.compact
-    Gene.setup(ensembl, "Ensembl Gene ID", "Hsa")
-
-    tsv = case database
-          when 'kegg'
-            tsv = KEGG.gene_pathway.tsv :key_field => "KEGG Pathway ID", :fields => ["KEGG Gene ID"], :type => :flat, :persist => true, :merge => true
-          when 'go', 'go_bp'
-            tsv = Organism.gene_go_bp(organism).tsv :key_field => "GO ID", :fields => ["Ensembl Gene ID"], :type => :flat, :persist => true, :merge => true
-          when 'pfam'
-            tsv = Organism.gene_pfam(organism).tsv :key_field => "Pfam Domain", :fields => ["Ensembl Gene ID"], :type => :flat, :persist => true, :merge => true
-          end
-
-    tsv.namespace = organism
-
-    exon_area = TSV.setup({}, :key_field => tsv.key_field, :fields => ["Probability"], :type => :single, :cast => :to_f, :namespace => organism)
-
-    tsv.through do |pathway, genes|
-      next if genes.nil? or genes.empty? 
-      size = Gene.gene_list_exon_bases(genes)
-      probabs[pathway] = (mutations_per_sample * size).to_f / background 
-    end
-
-    exon_area
-
-
-  end
-  task :exome_enrichment=> :tsv
-  export_synchronous :exome_enrichment
-
 end
