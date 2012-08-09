@@ -112,7 +112,7 @@ module Enrichment
   input :background, :array, "Enrichment background", nil
   input :fix_clusters, :boolean, "Fixed dependence in gene clusters", true
   def self.pfam_enrichment(organism, list, cutoff, fdr, background, fix_clusters)
-    res = Organism.gene_pfam(organism).tsv(:persist => true).enrichment(list, "Pfam Domain", :persist => (background.nil? or background.empty?), :cutoff => cutoff, :fdr => fdr, :background => background)
+    res = Organism.gene_pfam(organism).tsv(:persist => true).enrichment(list, "Pfam Domain", :persist => (background.nil? or background.empty?), :cutoff => cutoff, :fdr => fdr, :background => background, :rename => (fix_clusters ? RENAMES : nil))
     res.namespace = organism
     res
   end
@@ -201,14 +201,16 @@ module Enrichment
       res
  
     when "reactome"
-      background = background.to("UniProt/SwissProt Accession").compact if background and not background.empty?
-      res = Enrichment.reactome_enrichment(ensembl.to("UniProt/SwissProt Accession").compact, cutoff, fdr, background, fix_clusters)
+      genes = Organism.identifiers(organism).tsv(:key_field => "Ensembl Gene ID", :fields => ["UniProt/SwissProt Accession"], :type => :flat, :persist => true).values_at(*ensembl).compact.flatten.uniq
+      background = Organism.identifiers(organism).tsv(:key_field => "Ensembl Gene ID", :fields => ["UniProt/SwissProt Accession"], :type => :flat, :persist => true).values_at(*background).compact.flatten.uniq if background
+      res = Enrichment.reactome_enrichment(genes, cutoff, fdr, background, fix_clusters)
       TSV.setup(res, :key_field => "UniProt/SwissProt Accession", :fields => ["p-value", "NCI Reactome Pathway ID"]) unless TSV === res
       res.namespace = organism
       res
     when "nature"
-      background = background.to("UniProt/SwissProt Accession").compact if background and not background.empty?
-      res = Enrichment.nature_enrichment(ensembl.to("UniProt/SwissProt Accession").compact, cutoff, fdr, background, fix_clusters)
+      genes = Organism.identifiers(organism).tsv(:key_field => "Ensembl Gene ID", :fields => ["UniProt/SwissProt Accession"], :type => :flat, :persist => true).values_at(*ensembl).compact.flatten.uniq
+      background = Organism.identifiers(organism).tsv(:key_field => "Ensembl Gene ID", :fields => ["UniProt/SwissProt Accession"], :type => :flat, :persist => true).values_at(*background).compact.flatten.uniq if background
+      res = Enrichment.nature_enrichment(genes, cutoff, fdr, background, fix_clusters)
       TSV.setup(res, :key_field => "UniProt/SwissProt Accession", :fields => ["p-value", "NCI Nature Pathway ID"]) unless TSV === res
       res.namespace = organism
       res

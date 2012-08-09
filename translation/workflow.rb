@@ -14,7 +14,7 @@ module Translation
   def self.translate(organism, format, genes)
     index = index(organism, format)
     index.unnamed = true
-    index.values_at(*genes).collect{|list| list.nil? ? nil : list.first}
+    index.values_at(*genes)
   end
   task :translate => :array
 
@@ -26,7 +26,7 @@ module Translation
   def self.translate_from(organism, format, source, genes)
     index = index(organism, format, source)
     index.unnamed = true
-    index.values_at(*genes).collect{|list| list.nil? ? nil : list.first}
+    index.values_at(*genes)
   end
   task :translate_from => :array
 
@@ -36,7 +36,7 @@ module Translation
   input :genes, :array, "Gene id list"
   def self.tsv_translate(organism, format, genes)
     index = index(organism, format)
-    tsv = TSV.setup({}, :key_field => "Gene", :fields => [format])
+    tsv = TSV.setup({}, :key_field => "Gene", :fields => [format], :type => :single)
     genes.each do |gene|
       tsv[gene] = index[gene]
     end
@@ -51,7 +51,7 @@ module Translation
   input :genes, :array, "Gene id list"
   def self.tsv_translate_from(organism, format, source, genes)
     index = index(organism, format, source)
-    tsv = TSV.setup({}, :key_field => source, :fields => [format])
+    tsv = TSV.setup({}, :key_field => source, :fields => [format], :type => :single)
     genes.each do |gene|
       tsv[gene] = index[gene]
     end
@@ -68,7 +68,7 @@ module Translation
   input :proteins, :array, "Protein id list"
   def self.translate_protein(organism, format, proteins)
     index = protein_index(organism, format)
-    index.values_at(*proteins).collect{|list| list.nil? ? nil : list.first}
+    index.values_at(*proteins)
   end
   task :translate_protein => :array
 
@@ -79,7 +79,7 @@ module Translation
   input :proteins, :array, "Protein id list"
   def self.translate_protein_from(organism, format, source, proteins)
     index = protein_index(organism, format, source)
-    index.values_at(*proteins).collect{|list| list.nil? ? nil : list.first}
+    index.values_at(*proteins)
   end
   task :translate_protein_from => :array
 
@@ -121,7 +121,7 @@ module Translation
   input :probes, :array, "Probe id list"
   def self.translate_probe(organism, format, probes)
     index = probe_index(organism, format)
-    index.values_at(*probes).collect{|list| list.nil? ? nil : list.first}
+    index.values_at(*probes)
   end
   task :translate_probe => :array
 
@@ -132,7 +132,7 @@ module Translation
   input :probes, :array, "Probe id list"
   def self.translate_probe_from(organism, format, source, probes)
     index = probe_index(organism, format, source)
-    index.values_at(*probes).collect{|list| list.nil? ? nil : list.first}
+    index.values_at(*probes)
   end
   task :translate_probe_from => :array
 
@@ -172,7 +172,7 @@ module Translation
   def self.transcript_to_protein(organism, transcripts)
     index = transcript_to_protein_index(organism)
 
-    index.values_at(*transcripts).collect{|l| l.nil? ? nil : l.first}
+    index.values_at(*transcripts)
   end
   task :transcript_to_protein => :array
   

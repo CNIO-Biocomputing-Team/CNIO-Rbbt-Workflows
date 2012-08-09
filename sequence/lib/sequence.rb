@@ -42,6 +42,50 @@ module Sequence
   task :genes_at_genomic_positions => :tsv
   export_synchronous :genes_at_genomic_positions
 
+  desc "Find genes close to particular genomic positions. Multiple values separated by '|'"
+  input :organism, :string, "Organism code", "Hsa"
+  input :positions, :array, "Positions Chr:Position (e.g. 11:533766). Separator can be ':', space or tab. Extra fields are ignored"
+  input :upstream, :integer, "Upstream bases", 1000
+  input :downstream, :integer, "Downstream bases", 100
+  def self.genes_close_to_genomic_positions(organism, positions, upstream, downstream)
+    margin = [upstream, downstream].max
+    chr_positions = {}
+    positions.each do |position|
+      chr, pos = position.split(/[\s:\t]/).values_at 0, 1
+      chr.sub!(/chr/,'')
+      chr_positions[chr] ||= []
+      chr_positions[chr] << pos
+    end
+
+    chr_genes_forward = {}
+    chr_genes_reverse = {}
+    chr_positions.each do |chr, list|
+      forward_ranges = list.collect{|position| [position.to_i - upstream, position.to_i + downstream] * ":" }
+      reverse_ranges = list.collect{|position| [position.to_i - downstream, position.to_i + upstream] * ":" }
+      chr_genes_forward[chr] = genes_at_chr_ranges(organism, chr, forward_ranges)
+      chr_genes_reverse[chr] = genes_at_chr_ranges(organism, chr, reverse_ranges)
+    end
+
+    all_genes = chr_genes_forward.values.flatten.uniq + chr_genes_reverse.values.flatten.uniq
+    all_genes.uniq!
+
+    
+
+    tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Ensembl Gene ID"], :type => :flat)
+    strand_tsv = Organism.gene_positions(organism).tsv :fields => ["Strand"], :type => :single, :persist => true, :unnamed => true
+    positions.collect do |position|
+      chr, pos = position.split(/[\s:\t]/).values_at 0, 1
+      chr.sub!(/chr/,'')
+      genes = chr_genes_forward[chr].shift.split("|").select{|gene| strand_tsv[gene] == "1"} + 
+        chr_genes_reverse[chr].shift.split("|").select{|gene| strand_tsv[gene] == "-1"} 
+      tsv[position] = genes
+    end
+    tsv
+  end
+  task :genes_close_to_genomic_positions => :tsv
+  export_synchronous :genes_close_to_genomic_positions
+
+
   desc "Find exons at particular positions in a chromosome. Multiple values separated by '|'"
   input :organism, :string, "Organism code", "Hsa"
   input :chromosome, :string, "Chromosome name"
@@ -58,6 +102,7 @@ module Sequence
   input :positions, :array, "Positions Chr:Position (e.g. 11:533766). Separator can be ':', space or tab. Extra fields are ignored"
   def self.exons_at_genomic_positions(organism, positions)
     chr_positions = {}
+    positions = positions.compact
     positions.each do |position|
       chr, pos = position.split(/[\s:\t]/).values_at 0, 1
       chr.sub!(/chr/,'')
@@ -364,15 +409,19 @@ module Sequence
       case
       when mut.nil?
         alleles = []
-      when mut.index(',')
+      when mut.index(',') #A,T
         alleles = mut.split(",").collect{|m| Misc.IUPAC_to_base(m.strip)}.compact.flatten
-      when (mut.length == 1 and mut != '-')
+      when (mut.length == 1 and mut != '-') #A
         alleles = Misc.IUPAC_to_base(mut) || []
-      when (mut[0] == "+"[0] and mut.length % 4 == 0)
+      when (mut[0] == "+"[0] and mut.length % 4 == 0) #+ATG
         alleles = ["Indel"]
-      when (mut[0] == "-"[0] and mut.length % 3 == 0)
+      when (mut[0] == "-"[0] and mut.length % 3 == 0) #---
         alleles = ["Indel"]
-      else
+      when (mut.match(/^[ATCG]+$/) and mut.length > 2 and mut.length % 4 == 0) #GATG where G is the reference
+        alleles = ["Indel"]
+      when (mut[0] != "-"[0] and mut[1] == "-"[0] and mut.length % 4 == 0) #G---
+        alleles = ["Indel"]
+      else #+A - GT etc
         alleles = ["FrameShift"]
       end
 
@@ -464,6 +513,33 @@ module Sequence
   end
   task :snps_at_genomic_positions => :tsv
   export_asynchronous :snps_at_genomic_positions
+
+  desc "Identify known somatic SNVs at genomic positions"
+  input :organism, :string, "Organism code", "Hsa"
+  input :positions, :array, "Positions Chr:Position (e.g. 11:533766). Separator can be ':', space or tab. Extra fields are ignored"
+  def self.somatic_snvs_at_genomic_positions(organism, positions)
+    chr_positions = {}
+    positions.each do |position|
+      chr, pos = position.split(/[\s:\t]/).values_at 0, 1
+      chr_positions[chr] ||= []
+      chr_positions[chr] << pos
+    end
+
+    chr_somatic_snvs = {}
+    chr_positions.each do |chr, list|
+      chr_somatic_snvs[chr] = somatic_snvs_at_chr_positions(organism, chr, list)
+    end
+
+    tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Somatic SNV"], :type => :double)
+    positions.collect do |position|
+      chr, pos = position.split(/[\s:\t]/).values_at 0, 1
+      tsv[position] = chr_somatic_snvs[chr].shift.split("|")
+    end
+    tsv
+  end
+  task :somatic_snvs_at_genomic_positions => :tsv
+  export_asynchronous :somatic_snvs_at_genomic_positions
+
 
   desc "Find genes at particular ranges in a chromosome. Multiple values separated by '|'"
   input :organism, :string, "Organism code", "Hsa"
@@ -591,3 +667,4 @@ module Sequence
 
 
 end
+
