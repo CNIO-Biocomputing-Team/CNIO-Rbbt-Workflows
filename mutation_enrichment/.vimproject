@@ -1,0 +1,10 @@
+mutation_enrichment=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
+ workflow.rb
+ lib=lib {
+  sinatra.rb
+ }
+ test=test{
+ }
+ www=www {
+ }
+}
