@@ -27,7 +27,7 @@ module MutationEnrichment
     when 'go'
       database_tsv = Organism.gene_go(organism).tsv :key_field => "Ensembl Gene ID", :fields => ["GO ID"], :type => :flat, :persist => true, :unnamed => true, :merge => true
       all_db_genes = Gene.setup(database_tsv.keys, "Ensembl Gene ID", organism).uniq
-    when 'go_mf'
+    when 'go_bp'
       database_tsv = Organism.gene_go_bp(organism).tsv :key_field => "Ensembl Gene ID", :fields => ["GO ID"], :type => :flat, :persist => true, :unnamed => true, :merge => true
       all_db_genes = Gene.setup(database_tsv.keys, "Ensembl Gene ID", organism).uniq
     when 'go_mf'
