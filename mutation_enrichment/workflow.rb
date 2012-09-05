@@ -20,7 +20,7 @@ module MutationEnrichment
 
   helper :database_info do |database, organism|
 
-    case database
+    case database.to_s
     when 'kegg'
       database_tsv = KEGG.gene_pathway.tsv :key_field => 'KEGG Gene ID', :fields => ["KEGG Pathway ID"], :type => :flat, :persist => true, :unnamed => true, :merge => true
       all_db_genes = Gene.setup(database_tsv.keys, "KEGG Gene ID", organism).uniq
@@ -43,10 +43,10 @@ module MutationEnrichment
       database_tsv = NCI.reactome_pathways.tsv :key_field => "UniProt/SwissProt Accession", :fields => ["NCI Reactome Pathway ID"], :persist => true, :merge => true, :type => :flat, :unnamed => true
       all_db_genes = Gene.setup(database_tsv.keys, "UniProt/SwissProt Accession", organism).uniq
     when 'nature'
-      database_tsv = NCI.nature_pathways.tsv :key_field => "UniProt/SwissProt Accession", :fields => ["NCI Nature Pathway ID"], :persist => true, :merge => true, :type => :flat
+      database_tsv = NCI.nature_pathways.tsv :key_field => "UniProt/SwissProt Accession", :fields => ["NCI Nature Pathway ID"], :persist => true, :merge => true, :type => :flat, :unnamed => true
       all_db_genes = Gene.setup(database_tsv.keys, "UniProt/SwissProt Accession", organism).uniq
-    when 'nature'
-      database_tsv = NCI.biocarta_pathways.tsv :key_field => "Entrez Gene ID", :fields => ["NCI BioCarta Pathway ID"], :persist => true, :merge => true, :type => :flat
+    when 'biocarta'
+      database_tsv = NCI.biocarta_pathways.tsv :key_field => "Entrez Gene ID", :fields => ["NCI BioCarta Pathway ID"], :persist => true, :merge => true, :type => :flat, :unnamed => true
       all_db_genes = Gene.setup(database_tsv.keys, "Entrez Gene ID", organism).uniq
     end
 
@@ -68,7 +68,7 @@ module MutationEnrichment
     counts = TSV.setup({}, :key_field => tsv.key_field, :fields => ["Bases"], :type => :single, :cast => :to_i, :namespace => organism)
 
     log :processing_database, "Processing database #{database}"
-    tsv.with_monitor do
+    tsv.with_monitor :desc => "Computing exon bases for pathways" do
       tsv.through do |pathway, genes|
         next if genes.nil? or genes.empty? 
         size = Gene.gene_list_exon_bases(genes.ensembl.compact.remove(masked_genes))
@@ -115,7 +115,7 @@ module MutationEnrichment
    
   dep do |jobname, inputs| job(inputs[:baseline], inputs[:database].to_s, inputs) end
   input :database, :select, "Database code", :kegg, :select_options => [:kegg, :nature, :reactome, :biocarta, :go, :go_bp, :go_cc, :go_mf, :pfam]
-  input :baseline, :select, "Type of baseline to use", :bases, :select_options => [:pathway_base_counts, :pathway_gene_counts]
+  input :baseline, :select, "Type of baseline to use", :pathway_base_counts, :select_options => [:pathway_base_counts, :pathway_gene_counts]
   input :mutations, :array, "Genomic Mutation"
   input :fdr, :boolean, "BH FDR corrections", true
   input :masked_genes, :array, "Ensembl Gene ID list of genes to mask", []
@@ -152,7 +152,7 @@ module MutationEnrichment
 
     pvalues = TSV.setup({}, :key_field => database_tsv.fields.first, :fields => ["Matches", "Pathway total", "p-value", "Ensembl Gene ID"], :namespace => organism, :type => :double)
     mutation_genes = Misc.process_to_hash(mutations){|list| list.genes}
-    covered_mutations = mutations.select{|mutation|(mutation_genes[mutation] & all_db_genes).any? }.length
+    covered_mutations = mutations.select{|mutation| (mutation_genes[mutation] & all_db_genes).any? }.length
 
     log :pvalue, "Calculating binomial pvalues"
     affected_genes_per_pathway.each do |pathway, genes|
@@ -176,8 +176,8 @@ module MutationEnrichment
   
   dep do |jobname, inputs| job(inputs[:baseline], inputs[:database].to_s, inputs) end
   input :database, :select, "Database code", :kegg, :select_options => [:kegg, :nature, :reactome, :biocarta, :go, :go_bp, :go_cc, :go_mf, :pfam]
-  input :baseline, :select, "Type of baseline to use", :bases, :select_options => [:pathway_base_counts, :pathway_gene_counts]
-  input :mutations, :tsv, "Genomic Mutation and Sample. Example row: '10:12345678:A{TAB}Sample01|Sample02'"
+  input :baseline, :select, "Type of baseline to use", :pathway_base_counts, :select_options => [:pathway_base_counts, :pathway_gene_counts]
+  input :mutations, :tsv, "Genomic Mutation and Sample. Example row: '10:12345678:A{TAB}Sample01{TAB}Sample02'"
   input :permutations, :integer, "Number of permutations in test", 10000
   input :fdr, :boolean, "BH FDR corrections", true
   input :masked_genes, :array, "Ensembl Gene ID list of genes to mask", []
