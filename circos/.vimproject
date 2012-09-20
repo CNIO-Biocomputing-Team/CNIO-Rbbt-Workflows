@@ -1,0 +1,27 @@
+Circos=/$PWD filter="*"{
+ workflow.rb
+ lib=lib{
+  circos.rb
+ }
+ test=test{
+  test_circos.rb
+  test_helper.rb
+ }
+ share=share{
+  circos=circos{
+   partials=partials{
+    plot.conf
+    image.conf
+    header.conf
+    rule.conf
+   }
+   circos.conf
+   colors.all.conf
+   colors.conf
+   colors.values.conf
+   fonts.conf
+   ideogram.conf
+   ticks.conf
+  }
+ }
+}
