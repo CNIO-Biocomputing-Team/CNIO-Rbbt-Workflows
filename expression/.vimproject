@@ -1,0 +1,8 @@
+Expression=/$PWD filter="*"{
+ workflow.rb
+ lib=lib{
+ }
+ test=test{
+  test_helper.rb
+ }
+}
