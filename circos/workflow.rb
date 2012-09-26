@@ -165,4 +165,101 @@ module Circos
     "done"
   end
 
+  input :plots, :yaml, "Plot configuration", nil
+  task :circos => :string do |plots|
+
+    conf_dir = file(:conf)
+    FileUtils.mkdir_p conf_dir
+    %w(colors.all.conf colors.conf colors.values.conf fonts.conf ideogram.conf ticks.conf).each do |file|
+      FileUtils.cp Rbbt.share.circos[file].find, File.join(conf_dir, file)
+    end
+
+    image_dir = file(:img)
+    FileUtils.mkdir_p image_dir
+
+    image_file = File.join(image_dir, 'image.png')
+
+    conf = []
+
+    header = Circos.header
+    image  = Circos.image(image_file)
+
+    total = plots.length
+    inner_radius = 0.70
+    outer_radius = 0.95
+    gap = 0.01
+    width = outer_radius - inner_radius
+    size = width / total 
+    plots.each_with_index do |plot, i|
+      plot[:plot].first["r0"] = "#{inner_radius + size * i + gap}r"
+      plot[:plot].first["r1"] = "#{inner_radius + size * (i + 1)}r"
+    end
+
+    plot_config = [{:plots => plots}]
+
+    
+    conf.concat header
+    conf.concat image
+    conf.concat plot_config
+
+    Open.write(File.join(conf_dir, 'circos.conf'), Circos.print_conf(conf)) 
+
+    `circos -conf #{File.join(conf_dir, 'circos.conf')}`
+    "done"
+  end
+
+
+
+
+
+  input :value_file, :tsv, "Sample matrix"
+  input :chunk_size, :integer, "Chunk size", 10_000_000
+  def self.gene_ranges(value_file, chunk_size = 10_000_000)
+    if Hash === value_file
+      matrix = value_file
+    else
+      matrix = TSV.open(value_file, :type => :single, :cast => :to_f)
+    end
+    organism = matrix.namespace
+
+    gene_ranges = Organism.gene_positions(organism).tsv(:persist => true, :fields => ["Chromosome Name", "Gene Start", "Gene End"], :type => :list)
+
+    range_expression = {}
+
+    chr_size = Hash.new{|h,chr| File.size(Organism[organism]["chromosome_#{chr}"].find)}
+
+    log :finding, "Finding"
+    gene_ranges.through do |gene, values|
+      chr, start, eend = values
+      next unless chr =~ /^[0-9]+$/ 
+      next unless matrix.include? gene
+
+      chunk = start.to_i / chunk_size
+      range = (chunk*chunk_size..[((chunk + 1)*chunk_size)-1, chr_size[chr]].min)
+      value = matrix[gene]
+
+      range_expression[chr] ||= {}
+      range_expression[chr][range] ||= []
+      range_expression[chr][range] << value
+    end
+
+    text = ""
+    log :averagin, "Aver"
+    range_expression.each do |chr, values|
+      last_pos = chr_size[chr]
+
+      offset = 0
+      while offset < last_pos 
+        next_offset = [offset + chunk_size, last_pos].min
+        range = (offset..next_offset-1)
+        expression = Misc.mean(values[range] || [0])
+        offset = next_offset
+        text << "hs#{chr}\t#{range.begin}\t#{range.end}\t#{expression}\n"
+      end
+    end
+    
+    text
+  end
+  task :gene_ranges => :text
+
 end

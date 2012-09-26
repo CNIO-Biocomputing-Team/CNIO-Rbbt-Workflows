@@ -98,16 +98,19 @@ module Circos
     [{:rules => rules}]
   end
 
-  def self.plot(filename)
+  def self.plot(filename, options = {})
     text = Rbbt.share.circos.partials['plot.conf'].read
     conf = parse_conf(text)
     values = Open.read(filename).split("\n").collect{|l| l.split("\t").last.to_f}
-    conf.first["file"] = filename
-    min, max = [values.min, values.max]
-    conf.first["min"] = min
-    conf.first["max"] = max
+    
+    params = conf.first
+    params["file"] = filename
+    params.merge! options
+
+    params["min"] ||= values.min
+    params["max"] ||= values.max
     #conf.concat rules(min, max)
-    [{:plot => conf}]
+    {:plot => conf}
   end
 
 
