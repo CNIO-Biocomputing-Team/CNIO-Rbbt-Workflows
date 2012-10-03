@@ -1,6 +1,7 @@
 Expression=/$PWD filter="*"{
  workflow.rb
  lib=lib{
+  signature.rb
  }
  test=test{
   test_helper.rb

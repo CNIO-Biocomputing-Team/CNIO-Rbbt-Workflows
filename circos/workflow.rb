@@ -166,10 +166,13 @@ module Circos
   end
 
   input :plots, :yaml, "Plot configuration", nil
-  task :circos => :string do |plots|
+  input :image_map, :string, "Produce image map", nil
+  input :organism, :string, "Organism code", "Hsa"
+  task :circos => :string do |plots, image_map, organism|
 
     conf_dir = file(:conf)
     FileUtils.mkdir_p conf_dir
+
     %w(colors.all.conf colors.conf colors.values.conf fonts.conf ideogram.conf ticks.conf).each do |file|
       FileUtils.cp Rbbt.share.circos[file].find, File.join(conf_dir, file)
     end
@@ -202,14 +205,18 @@ module Circos
     conf.concat image
     conf.concat plot_config
 
+    if not image_map.nil? and not image_map.empty?
+      conf << { :image_map_use      => 'yes',
+        :image_map_missing_parameter => "exit",
+        :image_map_name => image_map } 
+      Open.write(File.join(conf_dir, 'ideogram.conf'), Rbbt.share.circos['ideogram.conf.map'].read.gsub("[ORGANISM]", organism))
+    end
+    
     Open.write(File.join(conf_dir, 'circos.conf'), Circos.print_conf(conf)) 
 
     `circos -conf #{File.join(conf_dir, 'circos.conf')}`
     "done"
   end
-
-
-
 
 
   input :value_file, :tsv, "Sample matrix"
@@ -222,7 +229,7 @@ module Circos
     end
     organism = matrix.namespace
 
-    gene_ranges = Organism.gene_positions(organism).tsv(:persist => true, :fields => ["Chromosome Name", "Gene Start", "Gene End"], :type => :list)
+    gene_ranges = Organism.gene_positions(organism).tsv(:persist => true, :fields => ["Chromosome Name", "Gene Start", "Gene End"], :type => :list, :unnamed => true)
 
     range_expression = {}
 

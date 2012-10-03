@@ -33,5 +33,7 @@ show_bands            = yes
 # in order to fill the bands with the color defined in the karyotype
 # file you must set fill_bands
 fill_bands            = yes
+
+band_url            = /entity/ChromosomeRange/[chr]:[start]:[end]?organism=[ORGANISM]
 </ideogram>
 

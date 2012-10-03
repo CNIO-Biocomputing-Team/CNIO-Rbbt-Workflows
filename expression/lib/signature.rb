@@ -40,19 +40,32 @@ module Signature
     end
   end
 
-  def abs
-    self.keys.each do |key|
-      self[key] = self[key].abs
+  def transform(&block)
+    case
+    when (block_given? and block.arity == 2)
+      self.each do |key, value|
+        self[key] = yield key, value
+      end
+    when (block_given? and block.arity == 1)
+      self.each do |key, value|
+        self[key] = yield value
+      end
+    else
+      raise "Block not given, or arity not 1 or 2"
     end
     self
+  end
+
+  def abs
+    transform{|value| value.abs}
   end
 
   def log
-    self.keys.each do |key|
-      self[key] = Math.log(self[key])
-    end
-    self
+    transform{|value| Math.log(value)}
   end
 
+  def pvalue_score
+    transform{|value| value > 0 ? -Math.log(value + 0.00000001) : Math.log(-value + 0.00000001)}
+  end
 
 end

@@ -107,8 +107,8 @@ module Circos
     params["file"] = filename
     params.merge! options
 
-    params["min"] ||= values.min
-    params["max"] ||= values.max
+    #params["min"] ||= values.min
+    #params["max"] ||= values.max
     #conf.concat rules(min, max)
     {:plot => conf}
   end

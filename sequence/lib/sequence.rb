@@ -146,6 +146,8 @@ module Sequence
       start_exons = start_index[pos - 10..pos + 10]
 
       end_exons.each do |exon|
+        last_exon = exon == end_exons.last
+
         strand, eend = exon_info[exon].values_at strand_field_pos, end_field_pos
         eend = eend.to_i
         diff = pos - eend
@@ -158,6 +160,8 @@ module Sequence
       end
 
       start_exons.each do |exon|
+        first_exon = exon == start_exons.first
+
         strand, start = exon_info[exon].values_at strand_field_pos, start_field_pos
         start = start.to_i
         diff = pos - start

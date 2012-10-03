@@ -21,6 +21,7 @@ Circos=/$PWD filter="*"{
    colors.values.conf
    fonts.conf
    ideogram.conf
+   ideogram.conf.map
    ticks.conf
   }
  }
