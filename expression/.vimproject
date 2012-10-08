@@ -2,6 +2,7 @@ Expression=/$PWD filter="*"{
  workflow.rb
  lib=lib{
   signature.rb
+  matrix.rb
  }
  test=test{
   test_helper.rb

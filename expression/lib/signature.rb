@@ -1,6 +1,9 @@
 require 'rbbt/util/misc'
 
 module Signature
+  extend ChainMethods
+  self.chain_prefix = :signature
+
 
   def self.setup(hash, options = {})
     hash.extend Signature
@@ -16,6 +19,11 @@ module Signature
     tsv = TSV.open(file, options)
     tsv.extend Signature
     tsv
+  end
+
+  def self.tsv_field(tsv, field, cast = nil)
+    tsv = TSV.open(tsv) unless TSV === tsv
+    Signature.setup(tsv.column(field, cast))
   end
 
   def values_over(threshold)
@@ -64,8 +72,52 @@ module Signature
     transform{|value| Math.log(value)}
   end
 
+  def pvalue_fdr_adjust!
+    FDR.adjust_hash! self
+  end
+
   def pvalue_score
     transform{|value| value > 0 ? -Math.log(value + 0.00000001) : Math.log(-value + 0.00000001)}
+  end
+
+  def clean_empty
+    Signature.setup(select{|k,v| v.nil? ? false : (v.respond_to?(:empty) ? !v.empty? : true)}.tap{|s| s.unnamed = true})
+  end
+
+  def sorted
+    OrderedList.setup(clean_empty.sort_by{|elem,v| v}.collect{|elem,v| elem})
+  end
+
+  def pvalue_sorted
+    OrderedList.setup(clean_empty.transform{|v| v.to_f}.sort{|a,b| 
+      a = a[1]
+      b = b[1]
+      case
+      when a == b
+        0
+      when (a <= 0 and b >= 0)
+        1
+      when (a >= 0 and b <= 0)
+        -2
+      when a > 0
+        a.abs <=> b.abs
+      else
+        b.abs <=> a.abs
+      end
+    
+    }.collect{|elem,v| elem})
+  end
+
+  def signature_select(*args, &block)
+    Signature.setup(signature_clean_select(*args, &block))
+  end
+
+  def ranks
+    ranks = TSV.setup({}, :key_field => self.key_field, :fields => ["Rank"], :cast => :to_i, :type => :single)
+    sorted.each_with_index do |elem, i|
+      ranks[elem] = i
+    end
+    ranks
   end
 
 end

@@ -1,6 +1,7 @@
 enrichment=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
  workflow.rb
  lib=lib {
+  gene_enrichment.rb
  }
  test=test{
  }

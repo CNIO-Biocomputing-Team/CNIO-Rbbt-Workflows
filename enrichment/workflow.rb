@@ -163,7 +163,7 @@ module Enrichment
   input :fdr, :boolean, "Perform Benjamini-Hochberg FDR correction", true
   input :background, :array, "Enrichment background", nil
   input :fix_clusters, :boolean, "Fixed dependence in gene clusters", true
-  def self.enrichment(database, list, organism, cutoff, fdr, background, fix_clusters)
+  def self.enrichment(database, list, organism, cutoff = 0.05, fdr = true, background = nil, fix_clusters = true)
     ensembl    = Translation.job(:translate, nil, :format => "Ensembl Gene ID", :genes => list, :organism => organism).run.compact.uniq
     background = Translation.job(:translate, nil, :format => "Ensembl Gene ID", :genes => background, :organism => organism).run.compact.uniq if background and background.any?
     Gene.setup(ensembl, "Ensembl Gene ID", "Hsa")

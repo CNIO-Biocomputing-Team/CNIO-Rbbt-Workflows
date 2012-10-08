@@ -1,4 +1,3 @@
-
 require 'rbbt'
 require 'rbbt/tsv'
 require 'rbbt/workflow'
@@ -15,8 +14,7 @@ module Expression
   input :organism, :string, "Organism code", "Hsa"
   def self.load_matrix(data_file, identifier_file, identifier_format, organism)
     log :open_data, "Opening data file"
-    #data = TSV.open(data_file, :type => :double, :unnamed => true)
-    data = TSV.open(CMD.cmd("head -n 1000 #{ data_file }", :pipe => true), :type => :double, :unnamed => true)
+    data = TSV.open(data_file, :type => :double, :unnamed => true)
 
     organism ||= data.namespace
 
@@ -31,6 +29,7 @@ module Expression
         data = data.reorder identifier_format, data.fields.dup.delete_if{|field| field == identifier_format}
       else
         raise "No organism defined and identifier_format did not match available formats" if organism.nil?
+        require 'rbbt/sources/organism'
         organism_identifiers = Organism.identifiers(organism)
         data.identifiers = identifier_file
         log :attach, "Adding #{ identifier_format } from #{ organism_identifiers }"
@@ -76,18 +75,25 @@ module Expression
   input :contrast, :array, "Samples to average"
   input :log2, :boolean, "Perform log2 correction", false
   input :two_channel, :boolean, "Two channel expression data", false
-  task :differential => :tsv do |matrix_file, main, contrast, log2, two_channel|
+  def self.differential(matrix_file, main, contrast, log2, two_channel)
     header = TSV.parse_header(Open.open(matrix_file))
     key_field, *fields = header.all_fields
     namespace = header.namespace
 
     main = main & fields
     contrast = contrast & fields
-    outfile = path
-    GE.analyze(matrix_file, main, contrast, log2, outfile, key_field, two_channel)
 
-    TSV.open(outfile, :type => :list, :cast => :to_f, :namespace => namespace)
+    if Step === self
+      GE.analyze(matrix_file, main, contrast, log2, path, key_field, two_channel)
+      TSV.open(path, :type => :list, :cast => :to_f, :namespace => namespace)
+    else
+      TmpFile.with_file do |path|
+        GE.analyze(matrix_file, main, contrast, log2, path, key_field, two_channel)
+        TSV.open(path, :type => :list, :cast => :to_f, :namespace => namespace)
+      end
+    end
   end
+  task :differential => :tsv
 
 
 end
