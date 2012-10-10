@@ -6,9 +6,10 @@ require 'rbbt/statistics/hypergeometric'
 require 'rbbt/statistics/random_walk'
 require 'rbbt/entity'
 require 'rbbt/entity/gene'
-require 'rbbt/sources/go'
-require 'rbbt/sources/kegg'
 require 'rbbt/sources/organism'
+require 'rbbt/sources/kegg'
+require 'rbbt/sources/go'
+require 'rbbt/sources/reactome'
 require 'rbbt/sources/NCI'
 
 Workflow.require_workflow 'Translation'
@@ -126,8 +127,8 @@ module Enrichment
   input :background, :array, "Enrichment background", nil
   input :fix_clusters, :boolean, "Fixed dependence in gene clusters", true
   def self.reactome_enrichment(list, cutoff, fdr, background, fix_clusters)
-    pathways = NCI.reactome_pathways.tsv :key_field => "UniProt/SwissProt Accession", :fields => ["NCI Reactome Pathway ID"], :persist => true, :merge => true, :type => :flat
-    res = pathways.enrichment list, "NCI Reactome Pathway ID", :cutoff => 0.1, :fdr => true, :background => background, :persist => (background.nil? or background.empty?), :cutoff => cutoff, :fdr => fdr
+    pathways = Reactome.protein_pathways.tsv(:key_field => "UniProt/SwissProt Accession", :fields => ["Reactome Pathway ID"], :persist => true, :merge => true, :type => :flat)
+    res = pathways.enrichment list, "Reactome Pathway ID", :cutoff => 0.1, :fdr => true, :background => background, :persist => (background.nil? or background.empty?), :cutoff => cutoff, :fdr => fdr
   end
   task :reactome_enrichment=> :tsv
   export_synchronous :reactome_enrichment
@@ -204,7 +205,7 @@ module Enrichment
       genes = Organism.identifiers(organism).tsv(:key_field => "Ensembl Gene ID", :fields => ["UniProt/SwissProt Accession"], :type => :flat, :persist => true).values_at(*ensembl).compact.flatten.uniq
       background = Organism.identifiers(organism).tsv(:key_field => "Ensembl Gene ID", :fields => ["UniProt/SwissProt Accession"], :type => :flat, :persist => true).values_at(*background).compact.flatten.uniq if background
       res = Enrichment.reactome_enrichment(genes, cutoff, fdr, background, fix_clusters)
-      TSV.setup(res, :key_field => "UniProt/SwissProt Accession", :fields => ["p-value", "NCI Reactome Pathway ID"]) unless TSV === res
+      TSV.setup(res, :key_field => "UniProt/SwissProt Accession", :fields => ["p-value", "Reactome Pathway ID"]) unless TSV === res
       res.namespace = organism
       res
     when "nature"
