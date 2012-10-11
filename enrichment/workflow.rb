@@ -11,6 +11,7 @@ require 'rbbt/sources/kegg'
 require 'rbbt/sources/go'
 require 'rbbt/sources/reactome'
 require 'rbbt/sources/NCI'
+require 'rbbt/sources/InterPro'
 
 Workflow.require_workflow 'Translation'
 
@@ -120,6 +121,20 @@ module Enrichment
   task :pfam_enrichment=> :tsv
   export_synchronous :pfam_enrichment
 
+  input :organism, :string, "Organism code", "Hsa"
+  input :list, :array, "Ensembl Gene ID"
+  input :cutoff, :float, "Cufoff value", 0.05
+  input :fdr, :boolean, "Perform Benjamini-Hochberg FDR correction", true
+  input :background, :array, "Enrichment background", nil
+  input :fix_clusters, :boolean, "Fixed dependence in gene clusters", true
+  def self.interpro_enrichment(organism, list, cutoff, fdr, background, fix_clusters)
+    res = InterPro.protein_domains.tsv(:persist => true, :fields => ["InterPro ID"], :type => :flat).enrichment(list, "InterPro ID", :persist => (background.nil? or background.empty?), :cutoff => cutoff, :fdr => fdr, :background => background, :rename => (fix_clusters ? RENAMES : nil))
+    res.namespace = organism
+    res
+  end
+  task :interpro_enrichment=> :tsv
+  export_synchronous :interpro_enrichment
+
 
   input :list, :array, "Ensembl Gene ID"
   input :cutoff, :float, "Cufoff value", 0.05
@@ -226,6 +241,15 @@ module Enrichment
       TSV.setup(res, :key_field => "Ensembl Gene ID", :fields => ["p-value", "Pfam Domain ID"]) unless TSV === res
       res.namespace = organism
       res
+
+    when "interpro"
+      genes = Organism.identifiers(organism).tsv(:key_field => "Ensembl Gene ID", :fields => ["UniProt/SwissProt Accession"], :type => :flat, :persist => true).values_at(*ensembl).compact.flatten.uniq
+      background = Organism.identifiers(organism).tsv(:key_field => "Ensembl Gene ID", :fields => ["UniProt/SwissProt Accession"], :type => :flat, :persist => true).values_at(*background).compact.flatten.uniq if background
+      res = Enrichment.interpro_enrichment(organism, genes, cutoff, fdr, background, fix_clusters)
+      TSV.setup(res, :key_field => "UniProt/SwissProt Accession", :fields => ["p-value", "Pfam Domain ID"]) unless TSV === res
+      res.namespace = organism
+      res
+ 
     else
       raise "Unknown database code: #{ database }"
     end

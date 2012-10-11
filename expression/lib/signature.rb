@@ -74,6 +74,7 @@ module Signature
 
   def pvalue_fdr_adjust!
     FDR.adjust_hash! self
+    self
   end
 
   def pvalue_score

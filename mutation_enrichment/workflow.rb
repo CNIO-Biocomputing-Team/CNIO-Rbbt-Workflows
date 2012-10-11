@@ -10,6 +10,8 @@ require 'rbbt/sources/go'
 require 'rbbt/sources/kegg'
 require 'rbbt/sources/organism'
 require 'rbbt/sources/NCI'
+require 'rbbt/sources/InterPro'
+require 'rbbt/sources/reactome'
 require 'rbbt/entity/genomic_mutation'
 
 module MutationEnrichment
@@ -36,11 +38,14 @@ module MutationEnrichment
     when 'go_cc'
       database_tsv = Organism.gene_go_cc(organism).tsv :key_field => "Ensembl Gene ID", :fields => ["GO ID"], :type => :flat, :persist => true, :unnamed => true, :merge => true
       all_db_genes = Gene.setup(database_tsv.keys, "Ensembl Gene ID", organism).uniq
+    when 'interpro'
+      database_tsv = InterPro.protein_domains.tsv :key_field => "UniProt/SwissProt Accession", :fields => ["InterPro ID"], :type => :flat, :persist => true, :unnamed => true, :merge => true
+      all_db_genes = Gene.setup(database_tsv.keys, "UniProt/SwissProt Accession", organism).uniq
     when 'pfam'
       database_tsv = Organism.gene_pfam(organism).tsv :key_field => "Ensembl Gene ID", :fields => ["Pfam Domain"], :type => :flat, :persist => true, :unnamed => true, :merge => true
       all_db_genes = Gene.setup(database_tsv.keys, "Ensembl Gene ID", organism).uniq
     when 'reactome'
-      database_tsv = NCI.reactome_pathways.tsv :key_field => "UniProt/SwissProt Accession", :fields => ["NCI Reactome Pathway ID"], :persist => true, :merge => true, :type => :flat, :unnamed => true
+      database_tsv = Reactome.protein_pathways.tsv :key_field => "UniProt/SwissProt Accession", :fields => ["Reactome Pathway ID"], :persist => true, :merge => true, :type => :flat, :unnamed => true
       all_db_genes = Gene.setup(database_tsv.keys, "UniProt/SwissProt Accession", organism).uniq
     when 'nature'
       database_tsv = NCI.nature_pathways.tsv :key_field => "UniProt/SwissProt Accession", :fields => ["NCI Nature Pathway ID"], :persist => true, :merge => true, :type => :flat, :unnamed => true
@@ -114,7 +119,7 @@ module MutationEnrichment
   #{{{ Mutation enrichment
    
   dep do |jobname, inputs| job(inputs[:baseline], inputs[:database].to_s, inputs) end
-  input :database, :select, "Database code", :kegg, :select_options => [:kegg, :nature, :reactome, :biocarta, :go, :go_bp, :go_cc, :go_mf, :pfam]
+  input :database, :select, "Database code", :kegg, :select_options => [:kegg, :nature, :reactome, :biocarta, :go, :go_bp, :go_cc, :go_mf, :pfam, :interpro]
   input :baseline, :select, "Type of baseline to use", :pathway_base_counts, :select_options => [:pathway_base_counts, :pathway_gene_counts]
   input :mutations, :array, "Genomic Mutation"
   input :fdr, :boolean, "BH FDR corrections", true
@@ -175,7 +180,7 @@ module MutationEnrichment
   #{{{ Sample enrichment
   
   dep do |jobname, inputs| job(inputs[:baseline], inputs[:database].to_s, inputs) end
-  input :database, :select, "Database code", :kegg, :select_options => [:kegg, :nature, :reactome, :biocarta, :go, :go_bp, :go_cc, :go_mf, :pfam]
+  input :database, :select, "Database code", :kegg, :select_options => [:kegg, :nature, :reactome, :biocarta, :go, :go_bp, :go_cc, :go_mf, :pfam, :interpro]
   input :baseline, :select, "Type of baseline to use", :pathway_base_counts, :select_options => [:pathway_base_counts, :pathway_gene_counts]
   input :mutations, :tsv, "Genomic Mutation and Sample. Example row: '10:12345678:A{TAB}Sample01{TAB}Sample02'"
   input :permutations, :integer, "Number of permutations in test", 10000
@@ -205,7 +210,7 @@ module MutationEnrichment
     all_mutations = GenomicMutation.setup(mutations.keys, "MutationEnrichment", organism, watson)
     mutation_genes = Misc.process_to_hash(all_mutations){|all_mutations| all_mutations.genes}
 
-    affected_samples_per_pathway = TSV.setup({}, :key_field => pathway_field, :fields => ["Sample"], :type => :list)
+    affected_samples_per_pathway = TSV.setup({}, :key_field => pathway_field, :fields => ["Sample"], :type => :flat)
     covered_genes_per_samples = {}
     all_samples = []
     sample_mutation_tokens = []
@@ -215,7 +220,7 @@ module MutationEnrichment
       samples = samples.flatten
 
       next if mutation_genes[mutation].nil? or mutation_genes[mutation].empty?
-      pathways = database_g2p.values_at(*(mutation_genes[mutation].to(gene_field))).compact.flatten
+      pathways = database_g2p.values_at(*(mutation_genes[mutation].to(gene_field))).compact.flatten.compact
       next if pathways.empty?
       pathways.each do |pathway|
         affected_samples_per_pathway[pathway] ||= []
@@ -232,6 +237,7 @@ module MutationEnrichment
         covered_mutations << mutation
       end
     end
+
 
     affected_genes = mutation_genes.values.compact.flatten.uniq
 
