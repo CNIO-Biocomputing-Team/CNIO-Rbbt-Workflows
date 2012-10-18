@@ -31,7 +31,7 @@ module Sequence
       chr_genes[chr] = genes_at_chr_positions(organism, chr, list)
     end
 
-    tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Ensembl Gene ID"], :type => :flat)
+    tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Ensembl Gene ID"], :type => :flat, :namespace => organism)
     positions.collect do |position|
       chr, pos = position.split(/[\s:\t]/).values_at 0, 1
       chr.sub!(/chr/,'')
@@ -71,7 +71,7 @@ module Sequence
 
     
 
-    tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Ensembl Gene ID"], :type => :flat)
+    tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Ensembl Gene ID"], :type => :flat, :namespace => organism)
     strand_tsv = Organism.gene_positions(organism).tsv :fields => ["Strand"], :type => :single, :persist => true, :unnamed => true
     positions.collect do |position|
       chr, pos = position.split(/[\s:\t]/).values_at 0, 1
@@ -115,7 +115,7 @@ module Sequence
       chr_exons[chr] = exons_at_chr_positions(organism, chr, list)
     end
 
-    tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Ensembl Exon ID"], :type => :flat)
+    tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Ensembl Exon ID"], :type => :flat, :namespace => organism)
     positions.collect do |position|
       chr, pos = position.split(/[\s:\t]/).values_at 0, 1
       chr.sub!(/chr/,'')
@@ -197,7 +197,7 @@ module Sequence
       chr_exon_junctions[chr] = exon_junctions_at_chr_positions(organism, chr, list)
     end
 
-    tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Exon Junction"], :type => :flat)
+    tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Exon Junction"], :type => :flat, :namespace => organism)
     positions.each do |position|
       chr, pos = position.strip.split(/[\s:\t]/).values_at 0, 1
       chr.sub!(/chr/,'')
@@ -237,7 +237,7 @@ module Sequence
       [position, list]
     end
 
-    tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Ensembl Transcrip ID:Offset:Strand"], :type => :flat)
+    tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Ensembl Transcrip ID:Offset:Strand"], :type => :flat, :namespace => organism)
     
     exon_transcript_offsets.unnamed = false
     exon_offsets.each do |position, list|
@@ -384,7 +384,7 @@ module Sequence
     end
 
     log :loading, "Loading results"
-    tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Reference Allele"], :type => :single)
+    tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Reference Allele"], :type => :single, :namespace => organism)
     positions.collect do |position|
       chr, pos = position.split(/[\s:\t]/).values_at 0, 1
       chr.sub!(/chr/,'')
@@ -405,7 +405,7 @@ module Sequence
     transcript_offsets = transcript_offsets_for_genomic_positions(organism, mutations)
     transcript_to_protein = Organism.transcripts(organism).tsv(:persist => true, :fields => ["Ensembl Protein ID"], :type => :single)
 
-    mutated_isoforms = TSV.setup({}, :type => :flat, :key_field => "Genomic Mutation", :fields => ["Mutated Isoform"])
+    mutated_isoforms = TSV.setup({}, :type => :flat, :key_field => "Genomic Mutation", :fields => ["Mutated Isoform"], :namespace => organism)
 
     transcript_offsets.each do |mutation, list|
       chr, pos, mut = mutation.split ":"
@@ -469,6 +469,7 @@ module Sequence
         end
       }
     end
+
     mutated_isoforms
   end
   task :mutated_isoforms_for_genomic_mutations => :tsv
@@ -508,7 +509,7 @@ module Sequence
       chr_snps[chr] = snps_at_chr_positions(organism, chr, list)
     end
 
-    tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Germline SNP"], :type => :double)
+    tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Germline SNP"], :type => :double, :namespace => organism)
     positions.collect do |position|
       chr, pos = position.split(/[\s:\t]/).values_at 0, 1
       tsv[position] = chr_snps[chr].shift.split("|")
@@ -534,7 +535,7 @@ module Sequence
       chr_somatic_snvs[chr] = somatic_snvs_at_chr_positions(organism, chr, list)
     end
 
-    tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Somatic SNV"], :type => :double)
+    tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Somatic SNV"], :type => :double, :namespace => organism)
     positions.collect do |position|
       chr, pos = position.split(/[\s:\t]/).values_at 0, 1
       tsv[position] = chr_somatic_snvs[chr].shift.split("|")
@@ -574,7 +575,7 @@ module Sequence
       chr_genes[chr] = genes_at_chr_ranges(organism, chr, list)
     end
 
-    tsv = TSV.setup({}, :key_field => "Genomic Range", :fields => ["Ensembl Gene ID"], :type => :flat)
+    tsv = TSV.setup({}, :key_field => "Genomic Range", :fields => ["Ensembl Gene ID"], :type => :flat, :namespace => organism)
     ranges.collect do |range|
       chr, s, e = range.split(":").values_at 0, 1, 2
       chr.sub!(/chr/,'')
@@ -616,7 +617,7 @@ module Sequence
       chr_snps[chr] = snps_at_chr_ranges(organism, chr, list)
     end
 
-    tsv = TSV.setup({}, :key_field => "Genomic Range", :fields => ["SNP ID"], :type => :flat)
+    tsv = TSV.setup({}, :key_field => "Genomic Range", :fields => ["SNP ID"], :type => :flat, :namespace => organism)
     ranges.collect do |range|
       chr, s, e = range.split(":").values_at 0, 1, 2
       chr.sub!(/chr/,'')
@@ -657,7 +658,7 @@ module Sequence
       chr_somatic_snvs[chr] = somatic_snvs_at_chr_ranges(organism, chr, list)
     end
 
-    tsv = TSV.setup({}, :key_field => "Genomic Range", :fields => ["SNP ID"], :type => :flat)
+    tsv = TSV.setup({}, :key_field => "Genomic Range", :fields => ["SNP ID"], :type => :flat, :namespace => organism)
     ranges.each do |range|
       next if range.nil? or range.empty?
       chr, s, e = range.split(":").values_at 0, 1, 2
