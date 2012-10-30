@@ -7,7 +7,6 @@ module Signature
 
   def self.setup(hash, options = {})
     hash.extend Signature
-
     hash
   end
 
@@ -26,26 +25,10 @@ module Signature
     Signature.setup(tsv.column(field, cast))
   end
 
-  def values_over(threshold)
-    entity_options = self.entity_options
-    entity_options[:organism] ||= self.namespace
-    Misc.prepare_entity(self.select{|k,v| v >= threshold}.collect{|k,v| k}, self.key_field, entity_options)
-  end
+  #{{{ Basic manipulation
 
-  def values_under(threshold)
-    entity_options = self.entity_options
-    entity_options[:organism] ||= self.namespace
-    Misc.prepare_entity(self.select{|k,v| v <= threshold}.collect{|k,v| k}, self.key_field, entity_options)
-  end
-
-  def significant_pvalues(threshold)
-    entity_options = self.entity_options
-    entity_options[:organism] ||= self.namespace
-    if threshold > 0
-      Misc.prepare_entity(self.select{|k,v| v > 0 and v <= threshold}.collect{|k,v| k}, self.key_field, entity_options)
-    else
-      Misc.prepare_entity(self.select{|k,v| v < 0 and v >= threshold}.collect{|k,v| k}, self.key_field, entity_options)
-    end
+  def signature_select(*args, &block)
+    Signature.setup(signature_clean_select(*args, &block))
   end
 
   def transform(&block)
@@ -72,14 +55,19 @@ module Signature
     transform{|value| Math.log(value)}
   end
 
-  def pvalue_fdr_adjust!
-    FDR.adjust_hash! self
-    self
+  def values_over(threshold)
+    entity_options = self.entity_options
+    entity_options[:organism] ||= self.namespace
+    Misc.prepare_entity(self.select{|k,v| v >= threshold}.collect{|k,v| k}, self.key_field, entity_options)
   end
 
-  def pvalue_score
-    transform{|value| value > 0 ? -Math.log(value + 0.00000001) : Math.log(-value + 0.00000001)}
+  def values_under(threshold)
+    entity_options = self.entity_options
+    entity_options[:organism] ||= self.namespace
+    Misc.prepare_entity(self.select{|k,v| v <= threshold}.collect{|k,v| k}, self.key_field, entity_options)
   end
+
+  #{{{ Rank stuff
 
   def clean_empty
     Signature.setup(select{|k,v| v.nil? ? false : (v.respond_to?(:empty) ? !v.empty? : true)}.tap{|s| s.unnamed = true})
@@ -87,6 +75,34 @@ module Signature
 
   def sorted
     OrderedList.setup(clean_empty.sort_by{|elem,v| v}.collect{|elem,v| elem})
+  end
+
+  def ranks
+    ranks = TSV.setup({}, :key_field => self.key_field, :fields => ["Rank"], :cast => :to_i, :type => :single)
+    sorted.each_with_index do |elem, i|
+      ranks[elem] = i
+    end
+    ranks
+  end
+
+  #{{{ Pvalue stuff
+  
+  def significant_pvalues(threshold)
+    entity_options = self.entity_options
+    entity_options[:organism] ||= self.namespace
+    if threshold > 0
+      Misc.prepare_entity(self.select{|k,v| v > 0 and v <= threshold}.collect{|k,v| k}, self.key_field, entity_options)
+    else
+      Misc.prepare_entity(self.select{|k,v| v < 0 and v >= threshold}.collect{|k,v| k}, self.key_field, entity_options)
+    end
+  end
+  def pvalue_fdr_adjust!
+    FDR.adjust_hash! self
+    self
+  end
+
+  def pvalue_score
+    transform{|value| value > 0 ? -Math.log(value + 0.00000001) : Math.log(-value + 0.00000001)}
   end
 
   def pvalue_sorted
@@ -109,16 +125,30 @@ module Signature
     }.collect{|elem,v| elem})
   end
 
-  def signature_select(*args, &block)
-    Signature.setup(signature_clean_select(*args, &block))
+  def pvalue_sorted_weights
+    sorted = clean_empty.transform{|v| v.to_f}.sort{|a,b| 
+      a = a[1]
+      b = b[1]
+      case
+      when a == b
+        0
+      when (a <= 0 and b >= 0)
+        1
+      when (a >= 0 and b <= 0)
+        -2
+      when a > 0
+        a.abs <=> b.abs
+      else
+        b.abs <=> a.abs
+      end
+    }
+
+    keys = []
+    weights = []
+    sorted.each{|k,v| keys << k; weights << - Math.log(v.abs)}
+
+    OrderedList.setup(keys, weights)
   end
 
-  def ranks
-    ranks = TSV.setup({}, :key_field => self.key_field, :fields => ["Rank"], :cast => :to_i, :type => :single)
-    sorted.each_with_index do |elem, i|
-      ranks[elem] = i
-    end
-    ranks
-  end
 
 end

@@ -98,7 +98,6 @@ class Matrix
     sample_differences(main_samples, contrast_samples)
   end
 
-
   def signature_set(field, cast = nil)
     path = Persist.persistence_path(matrix_file, {:dir => File.join(Matrix::MATRIX_DIR, 'signature_set')}, {:field => field, :cast => cast})
     Persist.persist(data, :tsv, :file => path, :no_load => true, :check => [matrix_file]) do
@@ -122,7 +121,7 @@ if __FILE__ == $0
 
   Workflow.require_workflow "StudyExplorer"
   cll = Study.setup('CLL')
-  cll_gene = cll.matrix :gene, "Ensembl Gene ID"
+  cll_gene = cll.matrix :gene_expression, "Ensembl Gene ID"
   #  m = Matrix.new(cll.dir.gene_expression.data, cll.dir.gene_expression.identifiers, cll.sample_file, "Ensembl Gene ID", "Hsa/jun2011")
   #
 
@@ -130,17 +129,25 @@ if __FILE__ == $0
 
   #exp = Signature.tsv_field(cll_gene.label_differences("Unmutated", "Mutated"), 'p.values', :to_f)
   exp = Signature.tsv_field(cll_gene.label_differences("C2", "C1"), 'p.values', :to_f)
+  #up   = exp.pvalue_fdr_adjust!.select("p.values"){|p| p > 0 && p.abs < 0.0001}.keys.ortholog("Mmu/jun2011").flatten.clean_annotations.compact
+  #down = exp.pvalue_fdr_adjust!.select("p.values"){|p| p < 0 && p.abs < 0.0001}.keys.ortholog("Mmu/jun2011").flatten.clean_annotations.compact
   up   = exp.pvalue_fdr_adjust!.select("p.values"){|p| p > 0 && p.abs < 0.0001}.keys.clean_annotations
   down = exp.pvalue_fdr_adjust!.select("p.values"){|p| p < 0 && p.abs < 0.0001}.keys.clean_annotations
 
-  geo = Matrix::geo_matrix_for('GDS1388', "Ensembl Gene ID", "Hsa/jun2011")
+  genes = exp.pvalue_sorted[0.100]
+
+
+  geo = Matrix::geo_matrix_for('GDS3635', "Ensembl Gene ID", "Hsa/jun2011")
 
   set = TSV.open(geo.signature_set('p.values', :to_f), :unnamed => true)
   Log.debug "Starting comparison. Up: #{up.length}. Down: #{down.length}"
   set.fields.each do |field|
-    s = Signature.tsv_field(set, field).pvalue_sorted
-    ddd [field,'up', s.score(up), s.pvalue_inline(up, 0.1, :permutations => 10000)]
-    ddd [field,'down', s.score(down), s.pvalue_inline(down, 0.1, :permutations => 10000)]
+    s = Signature.tsv_field(set, field).pvalue_sorted_weights
+    ddd s.hits(genes)
+    ddd [field,'up', s.score(up), s.pvalue_weights(up, 0.1, :permutations => 10000)]
+    ddd [field,'down', s.score(down), s.pvalue_weights(down, 0.1, :permutations => 10000)]
+    ddd [field,'up', s.score(up), s.pvalue(up, 0.1, :permutations => 10000)]
+    ddd [field,'down', s.score(down), s.pvalue(down, 0.1, :permutations => 10000)]
   end
 end
 
