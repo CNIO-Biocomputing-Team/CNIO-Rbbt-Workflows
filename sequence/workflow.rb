@@ -44,7 +44,7 @@ module Sequence
   input :file, :tsv, "TSV file to extend"
   input :databases, :array, "Database codes"
   def self.attach(organism, file, databases)
-    file.identifiers = Organism.identifiers(organism)
+    file.identifiers = Organism.identifiers(organism).produce
     file.type = :double
 
     databases.each do |database|
