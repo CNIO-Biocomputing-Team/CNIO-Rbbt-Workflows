@@ -3,12 +3,4 @@ translate=/$PWD filter="*.rb *.R *.js *.sass *.haml" {
  lib=lib {
   translation.rb
  }
- www=www {
-  main.rb
-  views=views {
-   translate=translate {
-    result.haml
-   }
-  }
- }
 }
