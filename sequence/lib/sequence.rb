@@ -197,7 +197,7 @@ module Sequence
       chr_exon_junctions[chr] = exon_junctions_at_chr_positions(organism, chr, list)
     end
 
-    tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Exon Junction"], :type => :flat, :namespace => organism)
+    tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Exon Junction"], :type => :flat, :namespace => organism, :unnamed => true)
     positions.each do |position|
       chr, pos = position.strip.split(/[\s:\t]/).values_at 0, 1
       chr.sub!(/chr/,'')
