@@ -94,8 +94,6 @@ module Expression
     end
   end
   task :differential => :tsv
-
-
 end
 
 if __FILE__ == $0

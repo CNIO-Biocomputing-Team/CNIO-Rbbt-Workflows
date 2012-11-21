@@ -352,7 +352,7 @@ module Sequence
         Misc.process_to_hash(positions.sort){|list| list.collect{|position| f.seek(position.to_i - 1); c = f.getc; c.nil? ? nil : c.chr }}.values_at *positions
       end
     rescue
-      if $!.message =~ /Fasta file for chromosome not found/i
+      if $!.message =~ /Fasta file for chromosome not found/i or $!.message =~ /No such file or directory/i
         Log.low $!.message
         ["?"] * positions.length
       else

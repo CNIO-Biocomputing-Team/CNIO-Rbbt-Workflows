@@ -115,11 +115,60 @@ class Matrix
     end
     path
   end
+
+  def random_forest_importance(main, contrast = nil, field = nil, options = {})
+    features = Misc.process_options options, :features
+    features ||= []
+
+    path = Persist.persistence_path(matrix_file, {:dir => File.join(Matrix::MATRIX_DIR, 'random_forest_importance')}, {:main => main, :contrast => contrast, :field => field, :features => features})
+    Persist.persist(data, :tsv, :file => path, :no_load => false, :check => [matrix_file]) do
+      all_samples = labels.keys
+      main_samples = find_samples(main, field)
+      if contrast
+        contrast_samples = find_samples(contrast, field)
+      else
+        contrast_samples = all_samples - main_samples
+      end
+
+
+      main_samples     = remove_missing(main_samples)
+      contrast_samples = remove_missing(contrast_samples)
+
+      TmpFile.with_file do |result|
+        R.run <<-EOF
+library(randomForest);
+orig = rbbt.tsv('#{matrix_file}');
+main = c('#{main_samples * "', '"}')
+contrast = c('#{contrast_samples * "', '"}')
+features = c('#{features * "', '"}')
+
+features = intersect(features, rownames(orig));
+data = t(orig[features, c(main, contrast)])
+data = cbind(data, Class = 0)
+data[main, "Class"] = 1
+
+rf = randomForest(factor(Class) ~ ., data, na.action = na.exclude)
+rbbt.tsv.write(rf$importance, filename='#{ result }', key.field = '#{@key_field}')
+        EOF
+
+        TSV.open(result, :type => :single, :cast => :to_f)
+      end
+    end
+  end
 end
 
 if __FILE__ == $0
-
   Workflow.require_workflow "StudyExplorer"
+  require 'rbbt/sources/string'
+
+  cll = Study.setup('CLL_new')
+  m = cll.matrix(:gene_expression)
+  relevant_genes = Gene.setup("BCL2", "Associated Gene Name", "Hsa/jun2011").string_interactors.reverse
+  m.random_forest_importance("Mutated", "Unmutated", "IGHV Status", :features => relevant_genes).sort_by(nil).each{|g,s|
+    puts [g.name, s] * ": "
+  }
+
+  exit
   cll = Study.setup('CLL')
   cll_gene = cll.matrix :gene_expression, "Ensembl Gene ID"
   #  m = Matrix.new(cll.dir.gene_expression.data, cll.dir.gene_expression.identifiers, cll.sample_file, "Ensembl Gene ID", "Hsa/jun2011")
