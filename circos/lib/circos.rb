@@ -1,4 +1,3 @@
-
 module Circos
 
   def self.parse_conf_values(string)
@@ -70,11 +69,12 @@ module Circos
     parse_conf(text)
   end
 
-  def self.image(filename)
+  def self.image(filename, options = {})
     text = Rbbt.share.circos.partials['image.conf'].read
     conf = parse_conf(text)
     conf.first["dir"] = File.dirname(filename)
     conf.first["file"] = File.basename(filename)
+    conf.first.merge! options
     [{:image => conf}]
   end
 

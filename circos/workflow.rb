@@ -168,7 +168,12 @@ module Circos
   input :plots, :yaml, "Plot configuration", nil
   input :image_map, :string, "Produce image map", nil
   input :organism, :string, "Organism code", "Hsa"
-  task :circos => :string do |plots, image_map, organism|
+  input :image_options, :yaml, "Image options", {}
+  task :circos => :string do |plots, image_map, organism, image_options|
+    image_options = Misc.add_defaults image_options, "inner_radius" => 0.7, "outer_radius" => 0.95, "gap" => 0.01
+    inner_radius = Misc.process_options image_options, "inner_radius"
+    outer_radius = Misc.process_options image_options, "outer_radius"
+    gap          = Misc.process_options image_options, "gap"
 
     conf_dir = file(:conf)
     FileUtils.mkdir_p conf_dir
@@ -185,12 +190,9 @@ module Circos
     conf = []
 
     header = Circos.header
-    image  = Circos.image(image_file)
+    image  = Circos.image(image_file, image_options)
 
     total = plots.length
-    inner_radius = 0.70
-    outer_radius = 0.95
-    gap = 0.01
     width = outer_radius - inner_radius
     size = width / total 
     plots.each_with_index do |plot, i|
@@ -268,5 +270,49 @@ module Circos
     text
   end
   task :gene_ranges => :text
+
+  input :ranges, :array, "Sample matrix"
+  input :organism, :string, "Organism code", "Hsa"
+  input :chunk_size, :integer, "Chunk size", 10_000_000
+  def self.range_values(ranges, organism = "Hsa", chunk_size = 10_000_000)
+    range_expression = {}
+
+    chr_size = Hash.new{|h,chr| File.size(Organism[organism]["chromosome_#{chr}"].find)}
+
+    ranges.each do |range|
+      chr, start, eend, value = range.split(":")
+
+      size = chr_size[chr]
+
+      start_chunk = start.to_i / chunk_size
+      end_chunk = eend.to_i / chunk_size
+
+      (start_chunk..end_chunk).each do |chunk|
+        r = (chunk*chunk_size..[((chunk + 1)*chunk_size)-1, chr_size[chr]].min)
+        range_expression[chr] ||= {}
+        range_expression[chr][r] ||= []
+        range_expression[chr][r] << value.to_f
+      end
+    end
+
+    text = ""
+    log :averagin, "Aver"
+    range_expression.each do |chr, values|
+      last_pos = chr_size[chr]
+
+      offset = 0
+      while offset < last_pos 
+        next_offset = [offset + chunk_size, last_pos].min
+        range = (offset..next_offset-1)
+        expression = Misc.mean(values[range] || [0])
+        offset = next_offset
+        text << "hs#{chr}\t#{range.begin}\t#{range.end}\t#{expression}\n"
+      end
+    end
+    
+    text
+  end
+  task :range_values => :text
+
 
 end
