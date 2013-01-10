@@ -1,0 +1,11 @@
+MutEval=/$PWD filter="*.rb *.js *.css *.pl *.py *.cfg *.config *.txt" {
+ workflow.rb
+ R=R{
+  script.R
+ }
+ data=data{
+  humdiv.txt
+  humsavar.reformat.txt
+  humvar.txt
+  }
+}
