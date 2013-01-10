@@ -1,0 +1,17 @@
+SENT=/$PWD filter="*.rb *.genotype *.haml *.sass *.js *.txt *.tsv" {
+ workflow.rb
+ R=R{
+  nmf.R
+ }
+ lib=lib{
+  sinatra.rb
+ }
+ www=www{
+  views=views{
+   entity=entity{
+    Gene=Gene{
+    }
+   }
+  }
+ }
+}
