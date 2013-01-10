@@ -1,0 +1,19 @@
+TextMining=/$PWD filter="*.rb *.genotype *.haml *.sass *.js *.txt *.tsv" {
+ workflow.rb
+ lib=lib{
+  sinatra.rb
+ }
+ www=www{
+  views=views{
+   gene_mention_recognition=gene_mention_recognition{
+    result.haml
+   }
+   compound_mention_recognition=compound_mention_recognition{
+    result.haml
+   }
+   split_sentences=split_sentences{
+    result.haml
+   }
+  }
+ }
+}
