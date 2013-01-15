@@ -1,0 +1,6 @@
+FileServer=/$PWD filter="*.rb *.js *.css *.pl *.py *.cfg *.config *.txt" {
+ workflow.rb
+ lib=lib{
+  sinatra.rb
+ }
+}
