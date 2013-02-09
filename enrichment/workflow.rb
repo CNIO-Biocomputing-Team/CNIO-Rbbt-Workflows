@@ -1,7 +1,6 @@
 require 'rbbt'
 require 'rbbt/util/misc'
 require 'rbbt/workflow'
-require 'rbbt/workflow/rest/entity'
 require 'rbbt/statistics/hypergeometric'
 require 'rbbt/statistics/random_walk'
 require 'rbbt/entity'
