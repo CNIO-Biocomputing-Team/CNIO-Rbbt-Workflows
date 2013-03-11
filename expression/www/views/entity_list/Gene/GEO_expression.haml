@@ -1,0 +1,56 @@
+- action_card = ActionCard.new
+
+- action_card.require :dataset do
+  = action_parameters do
+    - input :dataset, :string, "Dataset code"
+
+- action_card.require :dataset do
+  = action_parameters do
+    - input :dataset, :string, "Dataset code"
+  %p Please select a GEO dataset
+
+- if defined? dataset and dataset 
+  - if (GEO[dataset]["info.yaml"].yaml.include?(:subsets))
+
+    - dataset_info = GEO[dataset]["info.yaml"].yaml
+
+    - action_card.require :condition, :scale, :take_log do
+      = action_parameters do
+        - subsets = dataset_info[:subsets]
+        - conditions = subsets.keys
+        - input :dataset, :string, "Dataset code", dataset, :hide => true
+        - input :condition, :select, "Condition", conditions.first, :select_options => conditions
+        - input :scale, :boolean, "Scale the values", true
+        - input :take_log, :boolean, "Scale the values", dataset_info[:value_type] == "count"
+
+  - else
+    - action_card.require :scale, :take_log do
+      = action_parameters do
+        - input :dataset, :string, "Dataset code", :hide => true
+        - input :scale, :boolean, "Scale the values", true
+        - input :take_log, :boolean, "Scale the values", dataset_info[:value_type] == "count"
+
+= action_card_render action_card do
+  - dataset_info = GEO[dataset]["info.yaml"].yaml
+  - platform = dataset_info[:platform]
+
+  - genes = list.uniq
+
+  - geo_job = Expression.job(:geo_expression, list_id, :genes => genes.ensembl, :dataset => dataset, :condition => condition)
+
+  - gene_expression_values = geo_job.run
+
+  - colors = geo_job.info[:colors]
+  - if colors
+    - leyend = geo_job.info[:leyend]
+    %h3 Leyend
+    %dl
+      - leyend.each do |value, color|
+        %dt= value.empty? ? "Unknown" : value
+        %dd(style="color:#{color}")= color
+
+  - add_to_height = geo_job.info[:add_to_height]
+ 
+  = resource("Expression #{scale ? "(scaled) " : ""}#{take_log ? "(log) " : ""} (#{condition}) matrix for #{list_id} #{} in #{ dataset }.png", nil, :zoomable_image) do |filename| 
+    - Heatmap.heatmap(gene_expression_values, filename, :scale => scale, :take_log => take_log, :colors => colors)
+

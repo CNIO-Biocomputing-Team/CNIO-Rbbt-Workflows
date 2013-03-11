@@ -42,7 +42,14 @@ module Enrichment
   input :background, :array, "Enrichment background", nil
   input :fix_clusters, :boolean, "Fixed dependence in gene clusters", true
   def self.kegg_enrichment(list, cutoff, fdr, background, fix_clusters)
-    tsv = KEGG.gene_pathway.tsv(:persist => true)
+    #masked = KEGG.pathways.tsv(:fields => [], :persist => true, :select => proc{|l| l =~ /cancer|melanoma|carcinoma|disease|infection|opathy|hepatatis|glioma|Shigellosis/i}).keys
+    patterns = %w(cancer melanoma carcinoma leukemia leukaemia disease infection opathy hepatitis sclerosis hepatatis glioma Shigellosis)
+    masked = nil
+    TmpFile.with_file(patterns * "\n") do |pattern_file|
+      masked = CMD.cmd("cut -f 1,2 | grep -i -f #{pattern_file}|cut -f 1", :in => KEGG.pathways.open).read.split("\n")
+    end
+    tsv = KEGG.gene_pathway.tsv(:persist => false, :fix => proc{|l| gene, codes = l.split("\t"); codes = codes.split("|") -  masked; l = [gene, codes * "|"] * "\t"; l  })
+    ##tsv = KEGG.gene_pathway.tsv(:persist => false)
     list = list.collect{|l| l.select{|v| tsv.include? v}.first }.compact if Array === list.first
     tsv.enrichment(list, "KEGG Pathway ID", :persist => (background.nil? or background.empty?), :cutoff => cutoff, :fdr => fdr, :background => background, :rename => (fix_clusters ? RENAMES : nil))
   end

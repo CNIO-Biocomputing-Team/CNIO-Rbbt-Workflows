@@ -2,6 +2,8 @@ require 'rbbt'
 require 'rbbt/tsv'
 require 'rbbt/workflow'
 require 'rbbt/GE'
+require 'rbbt/expression/expression'
+require 'rbbt/GE/GEO'
 
 YAML::ENGINE.yamler = 'syck' if defined? YAML::ENGINE and YAML::ENGINE.respond_to? :yamler
 
@@ -12,62 +14,10 @@ module Expression
   input :identifier_file, :string, "Identifier equivalence table", nil
   input :identifier_format, :string, "Identifier format to use", nil
   input :organism, :string, "Organism code", "Hsa"
-  def self.load_matrix(data_file, identifier_file, identifier_format, organism)
-    log :open_data, "Opening data file"
-    data = TSV.open(data_file, :type => :double, :unnamed => true)
-
-    organism ||= data.namespace
-
-   
-    if not (identifier_file.nil? or identifier_format.nil? or data.key_field == identifier_format)
-
-      case
-      when (fields = (TSV.parse_header(Open.open(identifier_file)).fields) and fields.include?(identifier_format))
-        log :attach, "Adding #{ identifier_format } from #{ identifier_file }"
-        data = data.attach identifier_file, :fields => [identifier_format]
-        log :reorder, "Reordering data fields"
-        data = data.reorder identifier_format, data.fields.dup.delete_if{|field| field == identifier_format}
-      else
-        raise "No organism defined and identifier_format did not match available formats" if organism.nil?
-        require 'rbbt/sources/organism'
-        organism_identifiers = Organism.identifiers(organism)
-        data.identifiers = identifier_file
-        log :attach, "Adding #{ identifier_format } from #{ organism_identifiers }"
-        data = data.attach organism_identifiers, :fields => [identifier_format]
-        log :reorder, "Reordering data fields"
-        data = data.reorder identifier_format, data.fields.dup.delete_if{|field| field == identifier_format}
-        data
-      end
-
-      new_data = TSV.setup({}, :key_field => data.key_field, :fields => data.fields, :type => :list, :cast => :to_f, :namespace => organism, :unnamed => true)
-      log :averaging, "Averaging multiple values"
-      data.with_unnamed do
-        data.through do |key, values|
-          new_data[key] = values.collect{|list| Misc.mean(list.collect{|v| v.to_f})}
-        end
-      end
-
-      data = new_data
-    end
-
-    data
-  end
   task :load_matrix => :tsv 
 
   input :matrix_file, :string, "Sample matrix"
   input :samples, :array, "Samples to average"
-  def self.average_samples(matrix_file, samples)
-    matrix = TSV.open(matrix_file)
-    new = TSV.setup({}, :key_field => matrix.key_field, :fields => matrix.fields, :cast => matrix.cast, :namespace => matrix.namespace)
-    positions = samples.collect{|sample| matrix.identify_field sample}.compact
-    matrix.with_unnamed do
-      matrix.through do |key,values|
-        new[key] = Misc.mean(values.values_at(*positions).compact)
-      end
-    end
-
-    new
-  end
   task :average_samples => :tsv
 
   input :matrix_file, :string, "Sample matrix"
@@ -75,67 +25,57 @@ module Expression
   input :contrast, :array, "Samples to average"
   input :log2, :boolean, "Perform log2 correction", false
   input :two_channel, :boolean, "Two channel expression data", false
-  def self.differential(matrix_file, main, contrast, log2, two_channel)
-    header = TSV.parse_header(Open.open(matrix_file))
-    key_field, *fields = header.all_fields
-    namespace = header.namespace
-
-    main = main & fields
-    contrast = contrast & fields
-
-    if Step === self
-      GE.analyze(matrix_file, main, contrast, log2, path, key_field, two_channel)
-      TSV.open(path, :type => :list, :cast => :to_f, :namespace => namespace)
-    else
-      TmpFile.with_file do |path|
-        GE.analyze(matrix_file, main, contrast, log2, path, key_field, two_channel)
-        TSV.open(path, :type => :list, :cast => :to_f, :namespace => namespace)
-      end
-    end
-  end
   task :differential => :tsv
-end
 
-if __FILE__ == $0
-  Workflow.require_workflow "StudyExplorer"
-  Workflow.require_workflow "Circos"
+  input :genes, :array, "Ensembl Gene ID"
+  input :dataset, :string, "GEO dataset or series code"
+  input :condition, :string, "Condition to color", nil
+  input :organism, :string, "Organism code", "Hsa"
+  task :geo_expression => :tsv do |genes,dataset,condition,organism|
+    dataset_info = GEO[dataset]["info.yaml"].yaml
 
-  cll = Study.setup("CLL")
-  organism = cll.metadata[:organism]
+    platform = dataset_info[:platform]
 
-  data_file = cll.dir.gene_expression.data
-  identifier_file = cll.dir.gene_expression.identifiers
+    codes = GEO[platform].codes.tsv :type => :double
+    platform_probe_id = codes.key_field
 
-  #data_file = cll.dir.rnaseq["Trans.Expression.Enc7CLL.txt"].find
-  #identifier_file = Organism.gene_transcripts(organism).find
+    if Organism.known_ids(organism).include? platform_probe_id
+      genes2probes = Organism.identifiers(organism).tsv :key_field => genes.format, :fields => [platform_probe_id], :persist => true, :type => :flat
+    else
+      genes2probes = TSV.setup(genes, :key_field => genes.format, :fields => [], :namespace => genes.organism, :type => :double)
+      genes2probes.identifiers = Organism.identifiers(organism).find
+      genes2probes.attach codes, :fields => [:key]
+    end
 
-  matrix = Expression.job(:load_matrix, "test", :data_file => data_file, :identifier_file => identifier_file, :identifier_format => "Ensembl Gene ID", :organism => organism).run(true).path
+    expression_data = GEO[dataset].values.tsv :type => :list, :cast => :to_f, :namespace => organism
 
-  samples = cll.samples
-  main_samples = samples.select("Tumor Status" => "Tumor").keys
-  contrast_samples = samples.select("Tumor Status" => "Normal").keys
+    gene_expression_values = Misc.process_to_hash(genes.name){|names| genes.collect{|gene| Misc.zip_fields(expression_data.values_at(*(genes2probes[gene] || []).flatten).compact ).collect{|value_lists| Misc.mean value_lists }} }
 
-  main_samples = samples.select("IGHV Status" => "Mutated").keys
-  contrast_samples = samples.select("IGHV Status" => "Unmutated").keys
+    gene_expression_values.delete_if{|gene, values| (values || []).flatten.compact.empty?}
+    TSV.setup(gene_expression_values, :key_field => "Probe ID", :fields => expression_data.fields, :type => :list, :cast => :to_f)
 
-  main_values = Expression.job(:average_samples, "test", :matrix_file => matrix, :samples => main_samples).run(true).path
-  contrast_values = Expression.job(:average_samples, "test", :matrix_file => matrix, :samples => contrast_samples).run(true).path
+    if dataset_info.include?(:subsets)
+      if condition and not condition.empty?
+        subsets = dataset_info[:subsets]
+        value_lists = subsets[condition]
 
-  main_values_ranges = Circos.job(:gene_ranges, "test", :value_file => main_values).run(true).path
-  contrast_values_ranges = Circos.job(:gene_ranges, "test", :value_file => contrast_values).run(true).path
+        sample_features = expression_data.fields.collect do |field| 
+          value_lists.select{|value,list| list.include?(field)}.first.first
+        end
 
-  main_plot = Circos.plot(main_values_ranges, "color" => 'ylorrd-9-seq')
-  contrast_plot = Circos.plot(contrast_values_ranges, "color" => 'ylorrd-9-seq')
+        colors, leyend = Misc.colors_for(sample_features)
+        set_info :colors, 'c(' + colors.collect{|c| "\"#{c}\"" } * ", " + ")"
+        set_info :leyend, leyend
+      end
+    else 
+      sample_info = dataset_info[:sample_info]
 
-  mutation_counts = TSV.({}, :key_field => "Ensembl Gene ID", :fields => ["Mutation Counts"], :type => :single, :cast => :to_f)
-  cll.job(:relevant_genes, cll).run.each do |gene|
-    mutation_counts[gene] ||= 0.0
+      gene_expression_values.fields = gene_expression_values.fields.collect{|field| sample_info[field][:title] + " (#{ field })"}
+
+      set_info :add_to_height, gene_expression_values.fields.collect{|f| f.length}.max
+    end
+
+    gene_expression_values
   end
-  mutation_count_ranges = Circos.job(:gene_ranges, "test", :value_file => mutation_counts).run(true).path
 
-  mutation_plot = Circos.plot(mutation_count_ranges, "color" => 'ylorrd-9-seq')
-
-  plot_path = Circos.job(:circos, "test", :plots => [main_plot, contrast_plot]).clean.run(true).file('img/image.png')
-
-  puts plot_path
 end

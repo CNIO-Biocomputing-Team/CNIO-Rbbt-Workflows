@@ -6,5 +6,12 @@ mutation_enrichment=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
  test=test{
  }
  www=www {
+  views=views{
+   entity_list=entity_list{
+    GenomicMutation=GenomicMutation{
+     enrichment.haml
+    }
+   }
+  }
  }
 }

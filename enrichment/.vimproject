@@ -6,7 +6,12 @@ enrichment=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
  test=test{
  }
  www=www {
-  annotate_gene_list=annotate_gene_list{
+  views=views{
+   entity_list=entity_list{
+    Gene=Gene{
+     enrichment.haml
+     }
    }
+  }
  }
 }

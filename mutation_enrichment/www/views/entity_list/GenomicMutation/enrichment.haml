@@ -1,0 +1,8 @@
+- action_card = ActionCard.new do
+  - input :database, :select, "Database code", nil, :select_options => [:kegg, :nature, :reactome, :biocarta, :go_bp, :go_mf, :go_cc, :pfam, :interpro]
+   
+- action_card.require :database
+= action_card_render action_card do
+  = table do
+    - MutationEnrichment.job(:mutation_pathway_enrichment, list_id, :organism => list.organism, :mutations => list, :watson => list.watson, :baseline => :pathway_base_counts, :database => database).run
+ 

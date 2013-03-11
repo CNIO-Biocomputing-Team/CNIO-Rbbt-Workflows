@@ -23,34 +23,34 @@ module MutationEnrichment
 
     case database.to_s
     when 'kegg'
-      database_tsv = KEGG.gene_pathway.tsv :key_field => 'KEGG Gene ID', :fields => ["KEGG Pathway ID"], :type => :flat, :persist => true, :unnamed => true, :merge => true
+      database_tsv = KEGG.gene_pathway.tsv :key_field => 'KEGG Gene ID', :fields => ["KEGG Pathway ID"], :type => :flat, :persist => true, :unnamed => false, :merge => true
       all_db_genes = Gene.setup(database_tsv.keys, "KEGG Gene ID", organism).uniq
     when 'go'
-      database_tsv = Organism.gene_go(organism).tsv :key_field => "Ensembl Gene ID", :fields => ["GO ID"], :type => :flat, :persist => true, :unnamed => true, :merge => true
+      database_tsv = Organism.gene_go(organism).tsv :key_field => "Ensembl Gene ID", :fields => ["GO ID"], :type => :flat, :persist => true, :unnamed => false, :merge => true
       all_db_genes = Gene.setup(database_tsv.keys, "Ensembl Gene ID", organism).uniq
     when 'go_bp'
-      database_tsv = Organism.gene_go_bp(organism).tsv :key_field => "Ensembl Gene ID", :fields => ["GO ID"], :type => :flat, :persist => true, :unnamed => true, :merge => true
+      database_tsv = Organism.gene_go_bp(organism).tsv :key_field => "Ensembl Gene ID", :fields => ["GO ID"], :type => :flat, :persist => true, :unnamed => false, :merge => true
       all_db_genes = Gene.setup(database_tsv.keys, "Ensembl Gene ID", organism).uniq
     when 'go_mf'
-      database_tsv = Organism.gene_go_mf(organism).tsv :key_field => "Ensembl Gene ID", :fields => ["GO ID"], :type => :flat, :persist => true, :unnamed => true, :merge => true
+      database_tsv = Organism.gene_go_mf(organism).tsv :key_field => "Ensembl Gene ID", :fields => ["GO ID"], :type => :flat, :persist => true, :unnamed => false, :merge => true
       all_db_genes = Gene.setup(database_tsv.keys, "Ensembl Gene ID", organism).uniq
     when 'go_cc'
-      database_tsv = Organism.gene_go_cc(organism).tsv :key_field => "Ensembl Gene ID", :fields => ["GO ID"], :type => :flat, :persist => true, :unnamed => true, :merge => true
+      database_tsv = Organism.gene_go_cc(organism).tsv :key_field => "Ensembl Gene ID", :fields => ["GO ID"], :type => :flat, :persist => true, :unnamed => false, :merge => true
       all_db_genes = Gene.setup(database_tsv.keys, "Ensembl Gene ID", organism).uniq
     when 'interpro'
-      database_tsv = InterPro.protein_domains.tsv :key_field => "UniProt/SwissProt Accession", :fields => ["InterPro ID"], :type => :flat, :persist => true, :unnamed => true, :merge => true
+      database_tsv = InterPro.protein_domains.tsv :key_field => "UniProt/SwissProt Accession", :fields => ["InterPro ID"], :type => :flat, :persist => true, :unnamed => false, :merge => true
       all_db_genes = Gene.setup(database_tsv.keys, "UniProt/SwissProt Accession", organism).uniq
     when 'pfam'
-      database_tsv = Organism.gene_pfam(organism).tsv :key_field => "Ensembl Gene ID", :fields => ["Pfam Domain"], :type => :flat, :persist => true, :unnamed => true, :merge => true
+      database_tsv = Organism.gene_pfam(organism).tsv :key_field => "Ensembl Gene ID", :fields => ["Pfam Domain"], :type => :flat, :persist => true, :unnamed => false, :merge => true
       all_db_genes = Gene.setup(database_tsv.keys, "Ensembl Gene ID", organism).uniq
     when 'reactome'
-      database_tsv = Reactome.protein_pathways.tsv :key_field => "UniProt/SwissProt Accession", :fields => ["Reactome Pathway ID"], :persist => true, :merge => true, :type => :flat, :unnamed => true
+      database_tsv = Reactome.protein_pathways.tsv :key_field => "UniProt/SwissProt Accession", :fields => ["Reactome Pathway ID"], :persist => true, :merge => true, :type => :flat, :unnamed => false
       all_db_genes = Gene.setup(database_tsv.keys, "UniProt/SwissProt Accession", organism).uniq
     when 'nature'
-      database_tsv = NCI.nature_pathways.tsv :key_field => "UniProt/SwissProt Accession", :fields => ["NCI Nature Pathway ID"], :persist => true, :merge => true, :type => :flat, :unnamed => true
+      database_tsv = NCI.nature_pathways.tsv :key_field => "UniProt/SwissProt Accession", :fields => ["NCI Nature Pathway ID"], :persist => true, :merge => true, :type => :flat, :unnamed => false
       all_db_genes = Gene.setup(database_tsv.keys, "UniProt/SwissProt Accession", organism).uniq
     when 'biocarta'
-      database_tsv = NCI.biocarta_pathways.tsv :key_field => "Entrez Gene ID", :fields => ["NCI BioCarta Pathway ID"], :persist => true, :merge => true, :type => :flat, :unnamed => true
+      database_tsv = NCI.biocarta_pathways.tsv :key_field => "Entrez Gene ID", :fields => ["NCI BioCarta Pathway ID"], :persist => true, :merge => true, :type => :flat, :unnamed => false
       all_db_genes = Gene.setup(database_tsv.keys, "Entrez Gene ID", organism).uniq
     end
 
@@ -65,6 +65,8 @@ module MutationEnrichment
 
     tsv, total_genes, gene_field, pathway_field = database_info database, organism
 
+    total_genes = total_genes.ensembl.compact.uniq
+
     tsv = tsv.reorder pathway_field, [gene_field]
 
     tsv.namespace = organism
@@ -75,7 +77,7 @@ module MutationEnrichment
     tsv.with_monitor :desc => "Computing exon bases for pathways" do
       tsv.through do |pathway, genes|
         next if genes.nil? or genes.empty? 
-        size = Gene.gene_list_exon_bases(genes.ensembl.compact.remove(masked_genes))
+        size = Gene.gene_list_exon_bases(genes.ensembl.compact.uniq.remove(masked_genes))
         counts[pathway] = size
       end
     end
@@ -84,7 +86,7 @@ module MutationEnrichment
     total_size = Gene.gene_list_exon_bases(total_genes.remove(masked_genes))
 
     set_info :total_size, total_size
-    set_info :total_gene_list, total_genes.remove(masked_genes)
+    set_info :total_gene_list, total_genes.remove(masked_genes).clean_annotations
 
     counts
   end
@@ -110,7 +112,7 @@ module MutationEnrichment
     end
 
     set_info :total_genes, total_genes.remove(masked_genes).length
-    set_info :total_gene_list, total_genes.remove(masked_genes)
+    set_info :total_gene_list, total_genes.remove(masked_genes).clean_annotations
 
     counts
   end
@@ -139,29 +141,50 @@ module MutationEnrichment
 
     affected_genes = affected_genes.remove(masked_genes)
     affected_genes_db = affected_genes.to db_gene_field
-    all_db_genes = all_db_genes.ensembl.remove(masked_genes)
+    all_db_genes = all_db_genes.ensembl.remove(masked_genes).compact.sort
+
+    affected_genes_db = affected_genes_db.clean_annotations.compact.sort
 
     # Annotate each pathway with the affected genes that are involved in it
 
+    log :pathway_matches, "Finding affected genes per pathway"
     affected_genes_per_pathway = {}
-    affected_genes_db.zip(affected_genes).each do |gene_db,gene|
-      next if gene_db.nil?
-      pathways = database_tsv[gene_db]
-      next if pathways.nil?
-      pathways.uniq.each do |pathway|
-        affected_genes_per_pathway[pathway] ||= []
-        affected_genes_per_pathway[pathway] << gene
+    database_tsv.with_unnamed do
+      affected_genes_db.zip(affected_genes.clean_annotations).each do |gene_db,gene|
+        next if gene_db.nil?
+        pathways = database_tsv[gene_db]
+        next if pathways.nil?
+        pathways.uniq.each do |pathway|
+          affected_genes_per_pathway[pathway] ||= []
+          affected_genes_per_pathway[pathway] << gene
+        end
       end
     end
 
-    pvalues = TSV.setup({}, :key_field => database_tsv.fields.first, :fields => ["Matches", "Pathway total", "p-value", "Ensembl Gene ID"], :namespace => organism, :type => :double)
-    mutation_genes = Misc.process_to_hash(mutations){|list| list.genes}
-    covered_mutations = mutations.select{|mutation| (mutation_genes[mutation] & all_db_genes).any? }.length
+    log :mutation_genes, "Finding genes overlapping mutatiosn"
+    mutation_genes = {}
+    gene_mutations = {}
+    mutations.genes.zip(mutations.clean_annotations).each do |genes, mutation|
+      mutation_genes[mutation] = genes.sort
+      genes.each do |gene|
+        gene_mutations[gene] ||= []
+        gene_mutations[gene] << mutation
+      end
+    end
+    mutations = mutations.clean_annotations
+    puts gene_mutations
+
+    log :covered_mutations, "Finding mutations overlapping genes in pathway"
+    covered_mutations = mutations.select{|mutation| Misc.intersect_sorted_arrays(mutation_genes[mutation].dup, all_db_genes.dup).any? }.length
+    set_info :covered_mutations, covered_mutations
 
     log :pvalue, "Calculating binomial pvalues"
+    pvalues = TSV.setup({}, :key_field => database_tsv.fields.first, :fields => ["Matches", "Pathway total", "p-value", "Ensembl Gene ID"], :namespace => organism, :type => :double)
+    counts.unnamed = true
     affected_genes_per_pathway.each do |pathway, genes|
       pathway_total = counts[pathway]
-      matches = mutations.select{|mutation| (mutation_genes[mutation] & genes).any? }.length
+      #matches = mutations.select{|mutation| Misc.intersect_sorted_arrays(mutation_genes[mutation], genes.sort).any? }.length
+      matches = gene_mutations.values_at(*genes).compact.flatten.length
       pvalue = RSRuby.instance.binom_test(matches, covered_mutations, pathway_total.to_f / total_covered.to_f, "greater")["p.value"]
 
       pvalues[pathway] = [[matches], [pathway_total], [pvalue], affected_genes.subset(genes).uniq.sort_by{|g| g.name || g}]
@@ -169,7 +192,6 @@ module MutationEnrichment
 
     FDR.adjust_hash! pvalues, 2 if fdr
 
-    set_info :covered_mutations, covered_mutations
     set_info :total_covered, total_covered
 
     pvalues
