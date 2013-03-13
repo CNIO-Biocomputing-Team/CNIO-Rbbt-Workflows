@@ -1,0 +1,13 @@
+- action_card = ActionCard.new do
+  - input :database, :select, "Database code", nil, :select_options => [:kegg, :nature, :reactome, :biocarta, :go_bp, :go_mf, :go_cc, :pfam, :interpro]
+  -# input :mutation_subset, :select, "Mutation subset to use", :relevant_mutations
+  -# input :baseline, :select, "Type of baseline to use", :pathway_base_counts, :select_options => [:pathway_base_counts, :pathway_gene_counts]
+  -# input :permutations, :integer, "Number of permutations in test", 10000
+  -# input :fdr, :boolean, "BH FDR corrections", true
+  -# input :masked_genes, :array, "Ensembl Gene ID list of genes to mask", []
+    
+- action_card.require :database
+= action_card_render action_card do
+  = table do
+    - entity.job(:sample_pathway_enrichment, :baseline => :pathway_base_counts, :database => database).run
+ 
