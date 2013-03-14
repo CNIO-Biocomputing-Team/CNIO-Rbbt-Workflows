@@ -1,0 +1,14 @@
+- action_card = ActionCard.new do
+  - input :full_text, :boolean, "Use full text", false
+  - input :normalize, :boolean, "Normalize mentions", true
+  - input :organism, :string, "Organism code", "Hsa"
+
+- action_card.require :full_text, :normalize, :organism
+= action_card_render action_card do
+  - full_text = false if not defined? full_text or full_text.nil? or (String === full_text and full_text.empty?)
+  - full_text = true if full_text
+  - list.each do |article|
+    - text = full_text ? articule.full_text : article.abstract
+    - next if text.nil?
+    - mentions = TextMining.job(:gene_mention_recognition, list_id, :text => text, :normalize => normalize, :organism => organism).run
+

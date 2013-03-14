@@ -1,6 +1,7 @@
 Expression=/$PWD filter="*"{
  workflow.rb
  lib=lib{
+  sinatra.rb
  }
  test=test{
   test_helper.rb
@@ -9,6 +10,7 @@ Expression=/$PWD filter="*"{
   views=views{
    entity_list=entity_list{
     Gene=Gene{
+     GEO_expression.haml
     }
    }
   }

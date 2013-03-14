@@ -5,6 +5,14 @@ TextMining=/$PWD filter="*.rb *.genotype *.haml *.sass *.js *.txt *.tsv" {
  }
  www=www{
   views=views{
+
+   entity_list=entity_list{
+    PMID.haml
+    PMID=PMID{
+     gene_mentions.haml
+    }
+   }
+
    gene_mention_recognition=gene_mention_recognition{
     result.haml
    }

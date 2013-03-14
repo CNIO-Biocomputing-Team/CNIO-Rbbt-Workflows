@@ -1,5 +1,6 @@
 require 'rbbt'
 require 'rbbt/workflow'
+require 'rbbt/resource'
 require 'rbbt/sources/organism'
 require 'rbbt/ner/segment/named_entity'
 require 'rbbt/sources/jochem'
@@ -11,6 +12,8 @@ require 'rbbt/nlp/open_nlp/sentence_splitter'
 Workflow.require_workflow "Translation"
 module TextMining
   extend Workflow
+
+  Rbbt.claim Rbbt.software.opt.bibtex2html, :install, Rbbt.share.install.software.bibtex2html.find
 
   NER_METHODS = {}
   NORM = {}
@@ -116,9 +119,23 @@ module TextMining
   task :compound_mention_recognition => :annotations
   export_exec :compound_mention_recognition
 
+  input :pmids, :array, "List of PMIDs"
+  task :pmid_citation => :array do |pmids|
+
+    bibtex = PubMed.get_article(pmids).values_at(*pmids).collect{|article|
+      article.bibtex
+    } * "\n\n"
+
+    TmpFile.with_file(bibtex, true, :extension => 'bib') do |bibfile|
+      CMD.cmd("#{Rbbt.software.opt.bibtex2html.bin.bibtex2html.find} '#{ bibfile }'")
+    end
+    
+  end
+  export_exec :pmid_citation
+
 end
 
 if __FILE__ == $0
   require 'rbbt/entity/pmid'
-  TextMining.job(:compound_mention_recognition, '', :text => PMID.setup("22531442").text, :format => "DrugBank:ID").clean.run.each{|m| puts m.info}
+  TextMining.job(:pmid_citation, '', :pmids => ["22531442"]).run
 end

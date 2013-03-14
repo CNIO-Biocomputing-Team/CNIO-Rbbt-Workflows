@@ -1,0 +1,15 @@
+- entity_list_card = EntityListCard.new list, list_id
+
+- entity_list_card.description do
+
+  = table do
+    - tsv = TSV.setup({}, :key_field => "PMID", :fields => ["Year", "Title"], :type => :list)
+    - list.each do |pmid|
+      - tsv[pmid] = [pmid.year, pmid.title]
+    - tsv
+
+- entity_list_card.action_controller = default_action_controller list, list_id
+
+= entity_list_card_render entity_list_card
+
+

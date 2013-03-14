@@ -1,0 +1,13 @@
+#!/bin/bash
+
+INSTALL_HELPER_FILE="$1"
+RBBT_SOFTWARE_DIR="$2"
+
+source "$INSTALL_HELPER_FILE"
+
+name='bibtex2html'
+url="http://www.lri.fr/~filliatr/ftp/bibtex2html/bibtex2html-1.97.tar.gz"
+
+
+install_src "$name" "$url"
+
