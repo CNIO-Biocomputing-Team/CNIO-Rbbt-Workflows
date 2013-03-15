@@ -1,0 +1,70 @@
+- entity_card = EntityCard.new(entity)
+- entity_card.name = entity
+- entity_card.long_name = "#{entity.gene.name} Protein Isoform"
+- entity_card.meta do
+  %dl
+    %dt Gene
+    %dd= entity.gene.ensembl.link
+
+    %dt Uniprot
+    %dd
+      %a(href="http://www.uniprot.org/uniprot/#{entity.uniprot}")= entity.uniprot
+
+
+
+- entity_card.description do
+  .row
+    %dl.large-6.column
+      %dt Sequence
+      %dd(style='font-family: Andale Mono, monospace;font-size: 0.8em')
+        - dec = 0
+        = ((1..10).to_a * 5).collect{|i| i == 10 ? "<span style='color:red'>#{ dec += 1 }</span>" : i} * ""
+        %br
+        %br
+        - sequence = "" 
+        - entity.sequence.scan(/.{1,50}/).each_with_index do |line, i|
+          - sequence += "<span class='line'>" + line + "</span><span class='line_count' style='margin-left: 5px'>#{i + 1}</span><br/>"
+        %span.sequence= sequence
+
+    - pdbs = entity.pdbs
+    - if pdbs and pdbs.any?
+      - jmol_id = "Jmol-" << entity
+      = link_js "/js/jmol/Jmol"
+      %dl.large-6.column.last
+        %dt JMol
+        %dd
+          #jmol(style="height:400px")
+            %select.pdb(style='width: 200px')
+              %option(selected="selected") Select a pdb
+              - pdbs.each do |pdb, info| 
+                %option(attr-pdb=pdb)= "#{ pdb}"
+           
+            .jmol_image(id=jmol_id)
+
+            :javascript
+
+              jmolInitialize('/js/jmol', "JmolAppletSigned.jar")
+
+              jmolSetXHTML("#{jmol_id}")
+
+              jmolApplet(400, "", "#{jmol_id}");
+
+              deffer(function(){
+                $('select.pdb').change(function(){
+                  var option = $(this).find('option:selected');
+                  var pdb = option.attr('attr-pdb');
+                  if (pdb == "Select a pdb") return false
+                  $('#jmol').attr('attr-loaded-pdb', pdb)
+                  jmolScript("load=" + pdb + "; wireframe off; restrict water; select protein; backbone off; color pink;cartoons on;color structure;", "#{jmol_id}");
+                })
+              })
+
+
+    %dl.large-12.column
+      %dt Ensembl SVG
+      %dd= entity.marked_svg([])
+
+- entity_card.action_controller = default_action_controller entity
+
+
+= entity_card_render entity_card

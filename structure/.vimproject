@@ -1,13 +1,16 @@
 structure=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
  workflow.rb
+ test_workflow.rb
  lib=lib {
  }
- test=test{
-  test_helper.rb
- }
  www=www {
-  main.rb
   views=views {
+   entity=entity{
+    Protein.haml
+    Protein=Protein{
+     overlay_mutations_in_pdb.haml
+    }
+   }
   }
  }
 }

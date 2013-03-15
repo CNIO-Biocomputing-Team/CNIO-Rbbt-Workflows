@@ -1,0 +1,51 @@
+- action_card = ActionCard.new do
+  - input :list, :select, "Genomic Mutation list", nil, :html_options => {:class => 'favourite_lists', :type => 'GenomicMutation'}
+  - input :color, :select, "Color to use", 'green', :select_options => %w(red green blue)
+  - input :organism, :string, "Organism Code", entity.organism, :hide => true
+
+- action_card.require :list 
+= action_card_render action_card do
+ 
+  - seq_len = entity.sequence.length
+
+  - mutations = Entity::List.load_list("GenomicMutation", list, user)
+
+  - mutated_isoforms = mutations.mutated_isoforms.compact.flatten.select_by(:protein){|p| p == entity}
+
+  - mi_pdb_positions = {}
+  - mutated_isoforms.each do |mi|
+    - pdbs = mi.pdbs_and_positions
+    - mi_pdb_positions[mi] = pdbs if pdbs and pdbs.any?
+    
+
+  :javascript
+    function load_positions_in_pdb(positions, color){
+      var loaded_pdb = $('#jmol').attr('attr-loaded-pdb');
+      var id = $('#jmol > .jmol_image').attr('id');
+
+      if (undefined === loaded_pdb) return false;
+
+      for (mutation in positions){
+        var mi_positions = positions[mutation];
+
+        for (pdb_pos in mi_positions){
+          var info = mi_positions[pdb_pos];
+
+          var pdb = info[0]
+          var chains = info[1]
+
+          if (pdb == loaded_pdb){
+            for (chain in chains){
+              var pos = chains[chain] - 1;
+              if (undefined !== pos){
+                jmolScript("select protein and *.CA and " + pos + ":" + chain + "; spacefill; color " + color + ";", id);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    deffer(function(){
+      load_positions_in_pdb(#{mi_pdb_positions.to_json}, '#{color}');
+    })

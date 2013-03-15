@@ -3,9 +3,14 @@ TextMining=/$PWD filter="*.rb *.genotype *.haml *.sass *.js *.txt *.tsv" {
  lib=lib{
   sinatra.rb
  }
+ share=share{
+  install=install{
+   software=software{
+   }
+  }
+ }
  www=www{
   views=views{
-
    entity_list=entity_list{
     PMID.haml
     PMID=PMID{
