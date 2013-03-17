@@ -2,6 +2,7 @@ structure=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
  workflow.rb
  test_workflow.rb
  lib=lib {
+  sinatra.rb
  }
  www=www {
   views=views {
