@@ -143,7 +143,7 @@ module MutationEnrichment
     affected_genes_db = affected_genes.to db_gene_field
     all_db_genes = all_db_genes.ensembl.remove(masked_genes).compact.sort
 
-    affected_genes_db = affected_genes_db.clean_annotations.compact.sort
+    affected_genes_db = affected_genes_db.clean_annotations
 
     # Annotate each pathway with the affected genes that are involved in it
 
@@ -187,7 +187,8 @@ module MutationEnrichment
       matches = gene_mutations.values_at(*genes).compact.flatten.length
       pvalue = RSRuby.instance.binom_test(matches, covered_mutations, pathway_total.to_f / total_covered.to_f, "greater")["p.value"]
 
-      pvalues[pathway] = [[matches], [pathway_total], [pvalue], affected_genes.subset(genes).uniq.sort_by{|g| g.name || g}]
+      common_genes = affected_genes.subset(genes).uniq
+      pvalues[pathway] = [[matches], [pathway_total], [pvalue], common_genes.sort_by{|g| g.name || g}]
     end
 
     FDR.adjust_hash! pvalues, 2 if fdr

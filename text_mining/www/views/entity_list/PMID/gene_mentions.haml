@@ -1,14 +1,31 @@
 - action_card = ActionCard.new do
   - input :full_text, :boolean, "Use full text", false
-  - input :normalize, :boolean, "Normalize mentions", true
+  - input :normalize, :strinb, "Normalize mentions", true, :hide => true
+  - input :method, :strinb, "Organism code", "dictionary", :hide => true
   - input :organism, :string, "Organism code", "Hsa"
 
-- action_card.require :full_text, :normalize, :organism
 = action_card_render action_card do
   - full_text = false if not defined? full_text or full_text.nil? or (String === full_text and full_text.empty?)
   - full_text = true if full_text
-  - list.each do |article|
-    - text = full_text ? articule.full_text : article.abstract
-    - next if text.nil?
-    - mentions = TextMining.job(:gene_mention_recognition, list_id, :text => text, :normalize => normalize, :organism => organism).run
+  %dl
+    - method = :dictionary
+    - organism = "Hsa"
+    - normalize = true
+    - list.each do |document|
+      - sentence = document.sentences
+      - mentions = document.gene_mentions(:full_text => full_text, :normalize => normalize, :method => method, :organism => organism)
+      %dt
+        = document.link
+        \:
+        = document.title
+      %dd= mentions.compact.uniq.collect{|m| entity = m.entity(:organism => organism); sentence = document.sentences_over(m).first || "NONE"; title = (entity.name || entity) + ": " << (sentence.respond_to?(:unmask) ? sentence.unmask : sentence) ; entity.link(m, :title => CGI.escapeHTML(title)) } * ", "
+
+    -# list.each do |article|
+      - text = full_text ? article.full_text : article.abstract
+      - next if text.nil?
+      - job = TextMining.job(:gene_mention_recognition, list_id, :method => :dictionary, :text => text, :normalize => normalize, :organism => organism)
+      - mentions = job.exec
+      - if mentions and mentions.any?
+        %dt= article.title
+        %dd= mentions.uniq.collect{|m| entity = m.entity(:organism => organism); sentence = text.sentence_over(m); title = entity.name + ": " << sentence ; entity.link(m, :title => title) } * ", "
 
