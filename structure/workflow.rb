@@ -5,6 +5,7 @@ require 'rbbt/sources/organism'
 require 'rbbt/sources/uniprot'
 
 Workflow.require_workflow 'Translation'
+
 module Structure
   extend Workflow
 
@@ -24,7 +25,7 @@ module Structure
   input :domain, :string, "Cath domain"
   def self.position_over_domain(sequence, position, domain)
     alignment = Cath.align(domain, sequence)
-    alignment and alignment[:identity] > ALIGNMENT_THRESHOLD and alignment[:range].include? position
+    alignment != nil and alignment[:identity] > ALIGNMENT_THRESHOLD and alignment[:range].include? position
   end
   task :position_over_domain => :boolean
   export_exec :position_over_domain
@@ -35,16 +36,16 @@ module Structure
   input :pdb, :string, "PDB"
   def self.position_over_pdb(sequence, position, domain)
     alignment = Cath.align(domain, sequence)
-    alignment and alignment[:identity] > ALIGNMENT_THRESHOLD and alignment[:range].include? position
+    alignment != nil and alignment[:identity] > ALIGNMENT_THRESHOLD and alignment[:range].include? position
   end
-  task :position_over_domain => :boolean
-  export_exec :position_over_domain
+  task :position_over_pdb => :boolean
+  export_exec :position_over_pdb
 
 
   desc "Find PDBs for uniprot entry"
   input :uniprot, :string, "UniProt/SwissProt Accession"
   def self.pdbs(uniprot)
-    Uniprot.pdbs(uniprot).keys
+    UniProt.pdbs(uniprot).keys
   end
   task :pdbs => :array
   export_exec :pdbs

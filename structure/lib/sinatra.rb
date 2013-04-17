@@ -12,4 +12,3 @@ Rbbt.claim Rbbt.www.views.public.js.jmol.find(:lib), :proc do |dir|
   end
   nil
 end
-

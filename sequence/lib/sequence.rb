@@ -269,7 +269,7 @@ module Sequence
     utr5 = transcript_5utr[transcript]
       
     if utr5.nil?
-      Log.debug "UTR5 for transcript was missing: #{ transcript }"
+      #Log.debug "UTR5 for transcript was missing: #{ transcript }"
       phase = transcript_phase[transcript]
       raise "No UTR5 and no phase for transcript: #{ transcript }" if phase.nil?
       raise "No UTR5 but phase is -1: #{ transcript }" if phase == -1

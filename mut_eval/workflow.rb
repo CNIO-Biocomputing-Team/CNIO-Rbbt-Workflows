@@ -97,7 +97,7 @@ module MutEval
 
     proteins = mutations.collect{|mutation| mutation.split(":").first}
     index = Organism.protein_identifiers(organism).index(:target => "Ensembl Protein ID", :persist => true)
-    proteins2native_id = Misc.process_to_hash(proteins){|list| index.values_at(*list)}
+    proteins2native_id = Misc.process_to_hash(proteins){|list| index.chunked_values_at(list)}
 
     all_mutations = []
     mutations.each do |mutation|
@@ -144,7 +144,7 @@ module MutEval
 
     proteins = mutations.collect{|mutation| mutation.split(":").first}
     index = Organism.protein_identifiers(organism).index(:target => "UniProt/SwissProt ID", :persist => true)
-    proteins2native_id = Misc.process_to_hash(proteins){|list| index.values_at(*list)}
+    proteins2native_id = Misc.process_to_hash(proteins){|list| index.chunked_values_at(list)}
 
     all_mutations = {}
     mutations.each do |mutation|
@@ -185,7 +185,7 @@ module MutEval
 
     proteins = mutations.collect{|mutation| mutation.split(":").first}
     index = Organism.protein_identifiers(organism).index(:target => "Ensembl Protein ID", :persist => true)
-    proteins2native_id = Misc.process_to_hash(proteins){|list| index.values_at(*list)}
+    proteins2native_id = Misc.process_to_hash(proteins){|list| index.chunked_values_at(list)}
 
     all_mutations = []
     mutations.each do |mutation|
@@ -228,7 +228,7 @@ module MutEval
 
     proteins = mutations.collect{|mutation| mutation.split(":").first}
     index = Organism.protein_identifiers(organism).index(:target => "UniProt/SwissProt Accession", :persist => true)
-    proteins2native_id = Misc.process_to_hash(proteins){|list| index.values_at(*list)}
+    proteins2native_id = Misc.process_to_hash(proteins){|list| index.chunked_values_at(list)}
 
     all_mutations = []
     mutations.each do |mutation|
@@ -271,7 +271,7 @@ module MutEval
 
     proteins = mutations.collect{|mutation| mutation.split(":").first}
     index = Organism.protein_identifiers(organism).index(:target => "UniProt/SwissProt Accession", :persist => true)
-    proteins2native_id = Misc.process_to_hash(proteins){|list| index.values_at(*list)}
+    proteins2native_id = Misc.process_to_hash(proteins){|list| index.chunked_values_at(list)}
 
     all_mutations = []
 
