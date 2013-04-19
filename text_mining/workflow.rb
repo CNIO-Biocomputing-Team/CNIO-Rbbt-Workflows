@@ -6,6 +6,7 @@ require 'rbbt/ner/segment/named_entity'
 require 'rbbt/sources/jochem'
 require 'rbbt/ner/abner'
 require 'rbbt/ner/banner'
+require 'rbbt/ner/linnaeus'
 require 'rbbt/ner/ngram_prefix_dictionary'
 require 'rbbt/nlp/open_nlp/sentence_splitter'
 
@@ -51,6 +52,9 @@ module TextMining
     @@jochem_norm ||= JoChem.identifiers.tsv :persist => true, :unnamed => true, :fields => [field], :type => :flat
   end
 
+  def self.get_organism_ner
+    Linnaeus
+  end
 
   input :text, :text, "Text to process"
   def self.split_sentences(text)
@@ -118,6 +122,19 @@ module TextMining
   end
   task :compound_mention_recognition => :annotations
   export_exec :compound_mention_recognition
+
+  input :text, :text, "Text to process"
+  def self.species_mention_recognition(text)
+    return [] if text.nil? or text.strip.empty?
+
+    ner = get_organism_ner
+
+    mentions = ner.match(text)
+
+    mentions
+  end
+  task :species_mention_recognition => :annotations
+  export_exec :species_mention_recognition
 
   input :pmids, :array, "List of PMIDs"
   task :pmid_citation => :array do |pmids|
