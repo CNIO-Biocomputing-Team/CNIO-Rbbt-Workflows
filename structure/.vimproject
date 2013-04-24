@@ -3,6 +3,13 @@ structure=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
  test_workflow.rb
  lib=lib {
   sinatra.rb
+  ssw.rb
+ }
+ share=share{
+  install=install{
+   software=software{
+   }
+  }
  }
  www=www {
   views=views {

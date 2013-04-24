@@ -3,6 +3,7 @@ require 'rbbt/util/misc'
 require 'rbbt/workflow'
 require 'rbbt/sources/organism'
 require 'rbbt/sources/uniprot'
+require 'ssw'
 
 Workflow.require_workflow 'Translation'
 
@@ -182,22 +183,28 @@ module Structure
 
       chain_sequence = chain_sequence.collect{|aa| aa.nil? ? '?' : Misc::THREE_TO_ONE_AA_CODE[aa.downcase]} * ""
 
-      protein_aligment, chain_aligment = Misc.fast_align(protein_sequence, chain_sequence)
+      chain_alignment, protein_alignment = SmithWaterman.align(chain_sequence, protein_sequence)
 
-      non_gaps = 0
+      if protein_position > protein_alignment.gsub(/-|_/, '').length
+        alignments[chain] = nil
+        next
+      end
+
+      gaps = 0
       chars = 0
-      while non_gaps < protein_position do
-        non_gaps +=1 if protein_aligment[chars].chr != '-'
+      while (chars - gaps) < protein_position do
+        gaps +=1 if protein_alignment[chars].chr == '-' 
         chars += 1
       end
 
-      protein_position_in_aligment = protein_position + (chars - non_gaps)
+      protein_position_in_alignment = protein_position + gaps
 
-      alignments[chain] = if chain_aligment[protein_position_in_aligment].chr == '-'
+      alignments[chain] = if protein_alignment[protein_position_in_alignment-1].chr == '-'
                             nil
                           else
-                            chain_position = chain_aligment[(0..protein_position_in_aligment- 1)].chars.select{|c| c != '-'}.length
-
+                            chain_position_in_alignment = protein_position_in_alignment - protein_alignment.match(/^(_*)/)[1].length + chain_alignment.match(/^(_*)/)[1].length
+                            chain_gaps = chain_alignment[(0..chain_position_in_alignment-1)].chars.select{|c| c == "-"}.length
+                            chain_position = chain_position_in_alignment - chain_gaps
                             if protein_sequence[protein_position - 1] != chain_sequence[chain_position - 1]
                               Log.debug "Not equal: #{protein_sequence[protein_position-4..protein_position+2]} => #{chain_sequence[chain_position-4..chain_position+2]}"
                             else

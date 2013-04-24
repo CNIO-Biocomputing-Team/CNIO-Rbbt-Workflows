@@ -10,7 +10,7 @@ enrichment=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
    entity_list=entity_list{
     Gene=Gene{
      enrichment.haml
-     }
+    }
    }
   }
  }
