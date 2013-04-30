@@ -5,7 +5,7 @@ module Sequence
     key = [organism, chromosome]
     @@gene_position ||= {}
     if @@gene_position[key].nil?
-      @@gene_position[key] = TSV.range_index(Organism.gene_positions(organism), "Gene Start", "Gene End", :filters => [["field:Chromosome Name", chromosome]], :persist => true, :data_persist => true, :unnamed => true)
+      @@gene_position[key] = TSV.range_index(Organism.gene_positions(organism).produce, "Gene Start", "Gene End", :filters => [["field:Chromosome Name", chromosome]], :persist => true, :data_persist => true, :unnamed => true)
     end
     @@gene_position[key]
   end
@@ -14,7 +14,7 @@ module Sequence
     key = [organism, chromosome]
     @@exon_position ||= {}
     if @@exon_position[key].nil?
-      @@exon_position[key] = TSV.range_index(Organism.exons(organism), "Exon Chr Start", "Exon Chr End", :filters => [["field:Chromosome Name", chromosome]], :persist => true, :data_persist => true, :unnamed => true)
+      @@exon_position[key] = TSV.range_index(Organism.exons(organism).produce, "Exon Chr Start", "Exon Chr End", :filters => [["field:Chromosome Name", chromosome]], :persist => true, :data_persist => true, :unnamed => true)
     end
     @@exon_position[key]
   end
@@ -23,7 +23,7 @@ module Sequence
     key = [organism, chromosome]
     @@exon_start ||= {}
     if @@exon_start[key].nil?
-      @@exon_start[key] = TSV.pos_index(Organism.exons(organism), "Exon Chr Start", :filters => [["field:Chromosome Name", chromosome]], :persist => true, :data_persist => true, :unnamed => true)
+      @@exon_start[key] = TSV.pos_index(Organism.exons(organism).produce, "Exon Chr Start", :filters => [["field:Chromosome Name", chromosome]], :persist => true, :data_persist => true, :unnamed => true)
     end
     @@exon_start[key]
   end
@@ -32,7 +32,7 @@ module Sequence
     key = [organism, chromosome]
     @@exon_end ||= {}
     if @@exon_end[key].nil?
-      @@exon_end[key] = TSV.pos_index(Organism.exons(organism), "Exon Chr End", :filters => [["field:Chromosome Name", chromosome]], :persist => true, :data_persist => true, :unnamed => true)
+      @@exon_end[key] = TSV.pos_index(Organism.exons(organism).produce, "Exon Chr End", :filters => [["field:Chromosome Name", chromosome]], :persist => true, :data_persist => true, :unnamed => true)
     end
     @@exon_end[key]
   end

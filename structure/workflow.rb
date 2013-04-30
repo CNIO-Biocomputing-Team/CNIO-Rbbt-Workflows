@@ -185,10 +185,14 @@ module Structure
 
       chain_alignment, protein_alignment = SmithWaterman.align(chain_sequence, protein_sequence)
 
-      if protein_position > protein_alignment.gsub(/-|_/, '').length
+      ddd chain_alignment
+      ddd protein_alignment
+
+      if protein_position > protein_alignment.length
         alignments[chain] = nil
         next
       end
+      
 
       gaps = 0
       chars = 0

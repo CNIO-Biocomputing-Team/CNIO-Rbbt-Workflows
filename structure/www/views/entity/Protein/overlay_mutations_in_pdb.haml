@@ -10,10 +10,10 @@
 
   - mutations = Entity::List.load_list("GenomicMutation", list, user)
 
-  - if list.organism = entity.organism
+  - if mutations.organism == entity.organism
     - mutated_isoforms = mutations.mutated_isoforms.compact.flatten.select_by(:protein){|p| p == entity}
   - else
-    - mutated_isoforms = mutations.mutated_isoforms.compact.flatten.select_by(:protein){|p| p == entity.ortholog(list.organism)}
+    - mutated_isoforms = mutations.mutated_isoforms.compact.flatten.select_by(:protein){|p| p == entity.ortholog(mutations.organism)}
 
   - mi_pdb_positions = {}
   - mutated_isoforms.each do |mi|
