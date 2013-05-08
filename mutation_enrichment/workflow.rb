@@ -119,7 +119,7 @@ module MutationEnrichment
 
   #{{{ Mutation enrichment
    
-  dep do |jobname, inputs| job(inputs[:baseline], inputs[:database].to_s, inputs) end
+  dep do |jobname, inputs| job(inputs[:baseline] || :pathway_base_counts, inputs[:database].to_s, inputs) end
   input :database, :select, "Database code", :kegg, :select_options => [:kegg, :nature, :reactome, :biocarta, :go, :go_bp, :go_cc, :go_mf, :pfam, :interpro]
   input :baseline, :select, "Type of baseline to use", :pathway_base_counts, :select_options => [:pathway_base_counts, :pathway_gene_counts]
   input :mutations, :array, "Genomic Mutation"
