@@ -6,9 +6,9 @@ structure=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
   ssw.rb
  }
  share=share{
-  install=install{
-   software=software{
-   }
+  software=software/opt/ssw filter="*"{
+   ssw.c
+   ssw.h
   }
  }
  www=www {

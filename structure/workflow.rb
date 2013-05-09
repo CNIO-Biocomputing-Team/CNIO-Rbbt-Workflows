@@ -6,6 +6,7 @@ require 'rbbt/sources/uniprot'
 require 'ssw'
 
 Workflow.require_workflow 'Translation'
+Workflow.require_workflow 'PdbTools'
 
 module Structure
   extend Workflow
@@ -160,10 +161,13 @@ module Structure
 
   input :sequence, :text, "Protein sequence"
   input :position, :integer, "Position within protein sequence"
-  input :pdb, :string, "Name of pdb to align"
-  task :sequence_position_in_pdb => :yaml do |protein_sequence, protein_position, pdb|
+  input :pdb, :string, "Option 1: Name of pdb to align (from rcsb.org)", nil
+  input :pdbfile, :text, "Option 2: Content of pdb to align", nil
+  task :sequence_position_in_pdb => :yaml do |protein_sequence, protein_position, pdb, pdbfile|
     Log.debug "Amino acid in sequence position #{ protein_position }: #{protein_sequence[protein_position - 1].chr}"
-    atoms = CMD.cmd('grep "^ATOM"', :in => Open.read("http://www.pdb.org/pdb/files/#{ pdb }.pdb.gz")).read
+    atoms = pdb.nil? ? 
+      CMD.cmd('grep "^ATOM"', :in => pdbfile).read :
+      CMD.cmd('grep "^ATOM"', :in => Open.read("http://www.pdb.org/pdb/files/#{ pdb }.pdb.gz")).read
 
     chains = {}
     atoms.split("\n").each do |line|
@@ -185,14 +189,10 @@ module Structure
 
       chain_alignment, protein_alignment = SmithWaterman.align(chain_sequence, protein_sequence)
 
-      ddd chain_alignment
-      ddd protein_alignment
-
       if protein_position > protein_alignment.length
         alignments[chain] = nil
         next
       end
-      
 
       gaps = 0
       chars = 0
@@ -221,6 +221,90 @@ module Structure
     alignments
   end
   export_exec :sequence_position_in_pdb
+
+  input :pdb, :string, "Option 1: Name of pdb to align (from rcsb.org)", nil
+  input :pdbfile, :text, "Option 2: Content of pdb to align", nil
+  input :chain, :string, "PDB chain"
+  input :position, :integer, "Position within PDB chain"
+  input :sequence, :text, "Protein sequence"
+  task :pdb_chain_position_in_sequence => :integer do |pdb, pdbfile, chain, chain_position, protein_sequence|
+    atoms = pdb.nil? ? 
+      CMD.cmd('grep "^ATOM"', :in => pdbfile).read :
+      CMD.cmd('grep "^ATOM"', :in => Open.read("http://www.pdb.org/pdb/files/#{ pdb }.pdb.gz")).read
+
+    chains = {}
+    atoms.split("\n").each do |line|
+      pdb_chain = line[20..21].strip
+      aapos = line[22..25].to_i
+      aa    = line[17..19]
+      
+      next if aapos < 0
+
+      chains[pdb_chain] ||= Array.new
+      chains[pdb_chain][aapos] = aa
+    end
+
+    alignments = {}
+
+    chain_sequence = chains[chain].collect{|aa| aa.nil? ? '?' : Misc::THREE_TO_ONE_AA_CODE[aa.downcase]} * ""
+
+    protein_alignment, chain_alignment = SmithWaterman.align(protein_sequence, chain_sequence)
+
+    if chain_position > chain_alignment.length
+      alignments[chain] = nil
+      next
+    end
+
+    gaps = 0
+    chars = 0
+    while (chars - gaps) < chain_position do
+      gaps +=1 if chain_alignment[chars].chr == '-' 
+      chars += 1
+    end
+
+    chain_position_in_alignment = chain_position + gaps
+
+    alignment = if chain_alignment[chain_position_in_alignment-1].chr == '-'
+                   nil
+                 else
+                   protein_position_in_alignment = chain_position_in_alignment - chain_alignment.match(/^(_*)/)[1].length + protein_alignment.match(/^(_*)/)[1].length
+                   protein_gaps = protein_alignment[(0..protein_position_in_alignment-1)].chars.select{|c| c == "-"}.length
+                   protein_position = protein_position_in_alignment - protein_gaps
+                   if chain_sequence[chain_position - 1] != protein_sequence[protein_position - 1]
+                     Log.debug "Not equal: #{chain_sequence[chain_position-4..chain_position+2]} => #{protein_sequence[protein_position-4..protein_position+2]}"
+                   else
+                     Log.debug "Equal: #{chain_sequence[chain_position-4..chain_position+2]} => #{protein_sequence[protein_position-4..protein_position+2]}"
+                     protein_position
+                   end
+                 end
+
+    alignment
+  end
+  export_exec :pdb_chain_position_in_sequence
+
+
+  dep :sequence_position_in_pdb
+  input :sequence, :text, "Protein sequence"
+  input :position, :integer, "Position inside sequence"
+  input :pdb, :string, "Option 1: Name of pdb to align (from rcsb.org)", nil
+  input :pdbfile, :text, "Option 2: Content of pdb to align", nil
+  input :distance, :float, "Distance"
+  task :amino_acid_neighbours_in_pdb => :array do |sequence,position,pdb,pdbfile, distance|
+    alignments = step(:sequence_position_in_pdb).load.collect{|k,pos| [k,pos] * ":"}
+
+    pdbfile ||= Open.read("http://www.pdb.org/pdb/files/#{ pdb }.pdb.gz")
+
+    neighbours = PdbTools.job(:pdb_close_positions, name, :pdb => pdbfile, :distance => distance).run
+
+    positions_in_chains = neighbours.values_at(*alignments).flatten.uniq
+
+    positions_in_chains.collect do |p| 
+      chain, pos = p.split(":")
+      Structure.job(:pdb_chain_position_in_sequence, name, :sequence => sequence, :pdb => pdb, :pdbfile => pdbfile, :chain =>  chain, :position => pos.to_i).run
+    end.compact
+  end
+  export_asynchronous :amino_acid_neighbours_in_pdb
+
 end
 
 if defined? Entity and defined? MutatedIsoform and Entity === MutatedIsoform

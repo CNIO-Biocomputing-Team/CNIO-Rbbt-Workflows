@@ -1,0 +1,14 @@
+#!/bin/bash
+
+INSTALL_HELPER_FILE="$1"
+RBBT_SOFTWARE_DIR="$2"
+source "$INSTALL_HELPER_FILE"
+
+name='pdb-tools'
+url="http://pdb-tools.googlecode.com/files/pdbTools_0.2.1.tar.gz"
+
+
+get_pkg "$name" "$url"
+uncompress_pkg "$name"
+move_opt "$name"
+

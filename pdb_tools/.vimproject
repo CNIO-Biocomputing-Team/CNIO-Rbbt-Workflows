@@ -1,0 +1,13 @@
+PdbTools=/$PWD filter="*"{
+ workflow.rb
+ lib=lib{
+  sinatra.rb
+ }
+ share=share{
+  install=install{
+   software=software{
+    pdb-tools
+   }
+  }
+ }
+}
