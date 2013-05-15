@@ -2,8 +2,10 @@ structure=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
  workflow.rb
  test_workflow.rb
  lib=lib {
+  old_stuff.rb
   sinatra.rb
   ssw.rb
+  web_tool.rb
  }
  share=share{
   software=software/opt/ssw filter="*"{
@@ -13,8 +15,34 @@ structure=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
  }
  www=www {
   views=views {
+   compass=compass{
+    jmol.sass
+    isoform_svg.sass
+    protein.sass
+   }
+   public=public{
+    js=js{
+     jquery-jmol=jquery-jmol{
+      jmol-accent.js
+      jmol-accent.save.js
+      jquery.jmol.js
+     }
+     jmol.js
+     isoform_svg.js
+     protein.js
+    }
+   }
+   tools=tools{
+    jmol.haml
+    isoform_svg.haml
+   }
+   partials=partials{
+    jmol.haml
+    jmol.haml.save
+   }
    entity=entity{
     Protein.haml
+    Protein.haml.save
     Protein=Protein{
      overlay_mutations_in_pdb.haml
     }

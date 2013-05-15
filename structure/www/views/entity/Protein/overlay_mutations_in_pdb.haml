@@ -22,33 +22,6 @@
     
 
   :javascript
-    function load_positions_in_pdb(positions, color){
-      var loaded_pdb = $('#jmol').attr('attr-loaded-pdb');
-      var id = $('#jmol > .jmol_image').attr('id');
-
-      if (undefined === loaded_pdb) return false;
-
-      for (mutation in positions){
-        var mi_positions = positions[mutation];
-
-        for (pdb_pos in mi_positions){
-          var info = mi_positions[pdb_pos];
-
-          var pdb = info[0]
-          var chains = info[1]
-
-          if (pdb == loaded_pdb){
-            for (chain in chains){
-              var pos = chains[chain] - 1;
-              if (undefined !== pos){
-                jmolScript("select protein and *.CA and " + pos + ":" + chain + "; spacefill; color " + color + ";", id);
-              }
-            }
-          }
-        }
-      }
-    }
-
     deffer(function(){
-      load_positions_in_pdb(#{mi_pdb_positions.to_json}, '#{color}');
+      load_positions_in_pdb(jmol, #{mi_pdb_positions.to_json}, '#{color}');
     })

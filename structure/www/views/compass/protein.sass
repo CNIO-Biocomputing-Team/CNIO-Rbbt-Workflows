@@ -1,0 +1,25 @@
+@import "normalize"
+@import "foundation/_variables"
+@import "foundation/components/global"
+@import foundation/components/inline-lists
+@import foundation/components/buttons
+@import foundation/components/button-groups
+
+.controls
+  ul.controls
+    @include inline-list()
+    @include button-group-container()
+    margin: 0
+    margin-top: 5px
+    margin-bottom: 5px
+    li
+      margin: 0 2px 0 0
+      a
+        @include button-base
+        @include button-size
+        @include button-style
+        @include radius
+        @include single-transition
+        margin-bottom: 2px
+        font-size: 0.8em
+

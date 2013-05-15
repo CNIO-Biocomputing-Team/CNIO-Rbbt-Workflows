@@ -10,59 +10,79 @@
     %dd
       %a(href="http://www.uniprot.org/uniprot/#{entity.uniprot}")= entity.uniprot
 
-
-
+- require 'web_tool'
+- class << self; include Sinatra::RbbtToolHelper; end
 - entity_card.description do
-  .row
-    %dl.large-6.column
-      %dt Sequence
-      %dd(style='font-family: Andale Mono, monospace;font-size: 0.8em')
-        - dec = 0
-        = ((1..10).to_a * 5).collect{|i| i == 10 ? "<span style='color:red'>#{ dec += 1 }</span>" : i} * ""
-        %br
-        %br
-        - sequence = "" 
-        - entity.sequence.scan(/.{1,50}/).each_with_index do |line, i|
-          - sequence += "<span class='line'>" + line + "</span><span class='line_count' style='margin-left: 5px'>#{i + 1}</span><br/>"
-        %span.sequence= sequence
+  = link_css '/stylesheets/protein'
 
-    - pdbs = entity.pdbs
-    - if pdbs and pdbs.any?
-      - jmol_id = "Jmol-" << entity
-      = link_js "/js/jmol/Jmol"
-      %dl.large-6.column.last
-        %dt JMol
-        %dd
-          #jmol(style="height:400px")
-            %select.pdb(style='width: 200px')
-              %option(selected="selected") Select a pdb
-              - pdbs.each do |pdb, info| 
-                %option(attr-pdb=pdb)= "#{ pdb}"
-           
-            .jmol_image(id=jmol_id)
+  %dl.tabs
+    %dt Controls
+    %dd.row
+      .controls.column.small-12
+        %ul.controls
+          %li
+            %a.clear(href="#") clear
+            %a.aligned(href="#") mark alignment
 
-            :javascript
+        = action_parameters nil, {:klass => ''}, :action => '#' do
+          - input :list, :select, "Genomic Mutation list", nil, :html_options => {:class => 'favourite_lists', :type => 'GenomicMutation'}
+          - input :color, :select, "Color to use", 'green', :select_options => %w(red green blue)
 
-              jmolInitialize('/js/jmol', "JmolAppletSigned.jar")
+    %dt SVG
+    %dd.row
+      .svg.column.small-12
+        = tool :isoform_svg, :protein => entity, :sequence => entity.sequence, :height => 200
 
-              jmolSetXHTML("#{jmol_id}")
-
-              jmolApplet(400, "", "#{jmol_id}");
-
-              deffer(function(){
-                $('select.pdb').change(function(){
-                  var option = $(this).find('option:selected');
-                  var pdb = option.attr('attr-pdb');
-                  if (pdb == "Select a pdb") return false
-                  $('#jmol').attr('attr-loaded-pdb', pdb)
-                  jmolScript("load=" + pdb + "; wireframe off; restrict water; select protein; backbone off; color pink;cartoons on;color structure;", "#{jmol_id}");
-                })
-              })
+    %dt JMOL
+    %dd.row
+      .jmol.column.small-12
+        = tool :jmol, :protein => entity
 
 
-    %dl.large-12.column
-      %dt Ensembl SVG
-      %dd= entity.marked_svg([])
+ 
+     
+  :javascript
+    deffer(function(){
+      require_js("/js/protein.js");
+      var form = $('.controls > .action_parameters > form');
+      var submit = form.find('input[type=submit]');
+
+      $('.controls > ul.controls > li > a.clear').click(function(){
+        var jmol = $('.jmol_tool');
+        var isoform_svg= $('.isoform_svg_tool');
+
+        if(jmol.jmol_tool('is_pdb_loaded')){ jmol.jmol_tool('clear'); }
+
+        isoform_svg.isoform_svg_tool('clear');
+
+        return false;
+      })
+
+      $('.controls > ul.controls > li > a.aligned').click(function(){
+        var jmol = $('.jmol_tool');
+        var isoform_svg= $('.isoform_svg_tool');
+
+        if(jmol.jmol_tool('is_pdb_loaded')){ 
+          var map = jmol.jmol_tool('alignment_map');
+          jmol.jmol_tool('mark_aligned_region', 'blue');
+          isoform_svg.isoform_svg_tool('mark_aligned_region', map, 'blue');
+        }
+        return false;
+      })
+
+      submit.click(function(){
+        var list = form.find('select[name=list]').val();
+        var color = form.find('select[name=color]').val();
+
+        var jmol = $('.jmol_tool');
+        if(jmol.jmol_tool('is_pdb_loaded')){ jmol.jmol_tool('mark_genomic_mutations', list, color); }
+
+        var isoform_svg= $('.isoform_svg_tool');
+        isoform_svg.isoform_svg_tool('mark_genomic_mutations', list, color);
+
+        return false
+      })
+    })
 
 - entity_card.action_controller = default_action_controller entity
 

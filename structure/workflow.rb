@@ -11,163 +11,47 @@ Workflow.require_workflow 'PdbTools'
 module Structure
   extend Workflow
 
-  ALIGNMENT_THRESHOLD = 80
+  def self.alignment_map(alignment1, alignment2)
+    map = {}
 
-  desc "Find Cath domains for protein"
-  input :uniprot, :string, "UniProt/SwissProt Accession"
-  def self.cath_domains(uniprot)
-    Uniprot.cath_domains(uniprot)
+    offset1, alignment1 = alignment1.match(/^(_*)(.*)/).values_at 1, 2
+    offset2, alignment2 = alignment2.match(/^(_*)(.*)/).values_at 1, 2
+
+    gaps1 = 0 
+    gaps2 = 0
+    alignment1.chars.zip(alignment2.chars).each_with_index do |p,i|
+      char1, char2 = p
+      gaps1 += 1 if char1 == '-'
+      gaps2 += 1 if char2 == '-'
+      map[i + offset1.length + gaps1] = i + offset2.length + gaps2 if char1 == char2  and char1 != "-"
+    end
+    
+    map
   end
-  task :cath_domains => :array
-  export_exec :cath_domains
 
-  desc "Find if position in sequence overlaps cath domains"
-  input :sequence, :text, "Protein sequence"
-  input :position, :integer, "Position in the protein sequence"
-  input :domain, :string, "Cath domain"
-  def self.position_over_domain(sequence, position, domain)
-    alignment = Cath.align(domain, sequence)
-    alignment != nil and alignment[:identity] > ALIGNMENT_THRESHOLD and alignment[:range].include? position
-  end
-  task :position_over_domain => :boolean
-  export_exec :position_over_domain
-
-  desc "Find if position in sequence overlaps cath domains"
-  input :sequence, :text, "Protein sequence"
-  input :position, :integer, "Position in the protein sequence"
-  input :pdb, :string, "PDB"
-  def self.position_over_pdb(sequence, position, domain)
-    alignment = Cath.align(domain, sequence)
-    alignment != nil and alignment[:identity] > ALIGNMENT_THRESHOLD and alignment[:range].include? position
-  end
-  task :position_over_pdb => :boolean
-  export_exec :position_over_pdb
-
-
-  desc "Find PDBs for uniprot entry"
-  input :uniprot, :string, "UniProt/SwissProt Accession"
-  def self.pdbs(uniprot)
-    UniProt.pdbs(uniprot).keys
-  end
-  task :pdbs => :array
-  export_exec :pdbs
-
-  desc "Find cath domains for protein"
-  input :organism, :string, "Organism code", "Hsa"
-  input :protein, :string, "Protein ID, preferably Ensembl Protein ID"
-  def self.protein_cath_domains(organism, protein)
-    if protein =~ /^ENSP/
-      ensembl = protein
+  def self.match_position(protein_position, protein_alignment, chain_alignment)
+    if Array === protein_position
+      alignment_map(protein_alignment, chain_alignment).chunked_values_at protein_position.collect{|p| p.to_i}
     else
-      ensembl = Translation.job(:translate, nil, :organism => organism, :format => "Ensembl Protein ID", :genes => [protein]).exec
-      ensembl = ensembl.first unless ensembl.nil?
-      raise "Could not translate to Ensembl Protein ID" if ensembl.nil?
+      alignment_map(protein_alignment, chain_alignment)[protein_position]
     end
-
-    sequence = Organism.protein_sequence(organism).tsv(:persist =>  true)[ensembl]
-    raise "No sequence for protein: #{ protein }" if sequence.nil?
-
-    uniprots = Translation.job(:translate, nil, :organism => organism, :format => "UniProt/SwissProt Accession", :genes => [protein]).exec
-    uniprots.collect{|uniprot| Uniprot.cath_domains(uniprot).collect{|dom| [uniprot, dom] * ":"}}.flatten
   end
-  task :protein_cath_domains => :array
-  export_synchronous :protein_cath_domains
 
-  desc "Protein variant descriptions and structural info"
-  input :organism, :string, "Organism code", "Hsa"
-  input :protein, :string, "Protein ID, preferably Ensembl Protein ID"
-  def self.protein_variant_analysis(organism, protein)
-    tsv = TSV.setup({}, :key_field => "Uniprot Variant ID", :fields => ["Uniprot/SwissProt Accession", "Start", "End", "Reference", "Mutation", "Description", "Cath Domains", "Cath Codes"], :type => :double)
+  def self.atoms(pdb = nil, pdbfile = nil)
+    return CMD.cmd('grep "^ATOM"', :in => pdbfile).read if (pdb.nil? or pdb.empty?) and not pdbfile.nil? and not pdbfile.empty?
+    return CMD.cmd('grep "^ATOM"', :in => Open.read(pdb)).read if pdb and Open.remote? pdb
+    return CMD.cmd('grep "^ATOM"', :in => Open.read("http://www.pdb.org/pdb/files/#{ pdb }.pdb.gz")).read unless pdb.nil?
+    
 
-    if protein =~ /^ENSP/
-      ensembl = protein
-    else
-      ensembl = Translation.job(:translate, nil, :organism => organism, :format => "Ensembl Protein ID", :genes => [protein]).exec
-      ensembl = ensembl.first unless ensembl.nil?
-      raise "Could not translate to Ensembl Protein ID" if ensembl.nil?
-    end
-
-    sequence = Organism.protein_sequence(organism).tsv(:persist =>  true)[ensembl]
-    raise "No sequence for protein: #{ protein }" if sequence.nil?
-
-    uniprots = Translation.job(:translate, nil, :organism => organism, :format => "UniProt/SwissProt Accession", :genes => [protein]).exec
-    domain_codes = Rbbt.share.databases.CATH.CathDomainList.tsv :persist => true
-
-    uniprots.each do |uniprot|
-      variants = Uniprot.variants(uniprot)
-
-      domains = Misc.process_to_hash(Uniprot.cath_domains(uniprot)) do |domains|
-        domains.collect do |domain|
-          Cath.align(domain, sequence)
-        end
-      end
-
-      variants.each do |variant|
-        start = variant[:start]
-        if start.nil?
-          matching_domains = []
-        else
-          matching_domains = domains.select{|domain, info| info and info[:identity] > ALIGNMENT_THRESHOLD and info[:range].include? start.to_i }.collect{|domain, info| domain}
-        end
-
-        cath_codes = matching_domains.collect{|domain| 
-          values = domain_codes[domain]
-          values[0..3] * "."
-        }
-
-        tsv[variant[:id]] = [uniprot, variant[:start], variant[:end], variant[:ref], variant[:mut], variant[:desc], matching_domains, cath_codes]
-      end
-    end
-
-    tsv
+    raise "No valid pdb provided: #{ pdb }"
   end
-  task :protein_variant_analysis => :tsv
-  export_synchronous :protein_variant_analysis
-
-  input :protein_ranges, :array, "Protein ranges e.g.: ENSP00001203123:234:344"
-  input :organism, :string, "Organism code", "Hsa"
-  task :uniprot_variants_over_protein_ranges => :tsv do |protein_ranges, organism|
-    uniprot_variants = UniProt.annotated_variants.tsv :key_field => "UniProt/SwissProt Accession", :persist => true, :merge => true, :type => :double
-    proteins = {}
-
-    protein_ranges.collect do |line|
-      next unless line =~ /:/
-      protein, start, eend = line.split(":")
-
-      proteins[protein] ||= []
-      proteins[protein] << (start.to_i..eend.to_i)
-    end
-
-    all_proteins = proteins.keys
-
-    protein2uniprot = Misc.process_to_hash(all_proteins){|list| Translation.job(:translate_protein, "Structure[uniprot_variants_over_protein_range]", :proteins => all_proteins, :organism => organism, :format => "UniProt/SwissProt Accession").run}
-
-    results = TSV.setup({}, :key_field => "Protein Range", :fields => ["UniProt Variant ID"], :type => :flat)
-    aam_pos = uniprot_variants.identify_field "Amino Acid Mutation"
-    uniprot_var_pos = uniprot_variants.identify_field "UniProt Variant ID"
-    proteins.collect{|protein, ranges|
-      uniprot = protein2uniprot[protein]
-
-      ranges.each do |range|
-        next unless uniprot_variants.include? uniprot
-        results[[protein, range.begin, range.end] * ":"] =  
-          uniprot_variants[uniprot].zip_fields.select{|values|  range.include? values[aam_pos].scan(/\d+/)[0].to_i}.collect{|values| values[uniprot_var_pos]}
-      end
-    }
-
-    results
-  end
-  export_exec :uniprot_variants_over_protein_ranges
 
   input :sequence, :text, "Protein sequence"
-  input :position, :integer, "Position within protein sequence"
+  input :positions, :array, "Positions within protein sequence"
   input :pdb, :string, "Option 1: Name of pdb to align (from rcsb.org)", nil
   input :pdbfile, :text, "Option 2: Content of pdb to align", nil
-  task :sequence_position_in_pdb => :yaml do |protein_sequence, protein_position, pdb, pdbfile|
-    Log.debug "Amino acid in sequence position #{ protein_position }: #{protein_sequence[protein_position - 1].chr}"
-    atoms = pdb.nil? ? 
-      CMD.cmd('grep "^ATOM"', :in => pdbfile).read :
-      CMD.cmd('grep "^ATOM"', :in => Open.read("http://www.pdb.org/pdb/files/#{ pdb }.pdb.gz")).read
+  task :sequence_position_in_pdb => :yaml do |protein_sequence, protein_positions, pdb, pdbfile|
+    atoms = Structure.atoms(pdb, pdbfile)
 
     chains = {}
     atoms.split("\n").each do |line|
@@ -189,34 +73,10 @@ module Structure
 
       chain_alignment, protein_alignment = SmithWaterman.align(chain_sequence, protein_sequence)
 
-      if protein_position > protein_alignment.length
-        alignments[chain] = nil
-        next
-      end
-
-      gaps = 0
-      chars = 0
-      while (chars - gaps) < protein_position do
-        gaps +=1 if protein_alignment[chars].chr == '-' 
-        chars += 1
-      end
-
-      protein_position_in_alignment = protein_position + gaps
-
-      alignments[chain] = if protein_alignment[protein_position_in_alignment-1].chr == '-'
-                            nil
-                          else
-                            chain_position_in_alignment = protein_position_in_alignment - protein_alignment.match(/^(_*)/)[1].length + chain_alignment.match(/^(_*)/)[1].length
-                            chain_gaps = chain_alignment[(0..chain_position_in_alignment-1)].chars.select{|c| c == "-"}.length
-                            chain_position = chain_position_in_alignment - chain_gaps
-                            if protein_sequence[protein_position - 1] != chain_sequence[chain_position - 1]
-                              Log.debug "Not equal: #{protein_sequence[protein_position-4..protein_position+2]} => #{chain_sequence[chain_position-4..chain_position+2]}"
-                            else
-                              Log.debug "Equal: #{protein_sequence[protein_position-4..protein_position+2]} => #{chain_sequence[chain_position-4..chain_position+2]}"
-                              chain_position
-                            end
-                          end
+      alignments[chain] = Structure.match_position(protein_positions, protein_alignment, chain_alignment)
     end
+
+    alignments.delete_if{|c,p| p.nil? or p.empty?}
 
     alignments
   end
@@ -225,12 +85,10 @@ module Structure
   input :pdb, :string, "Option 1: Name of pdb to align (from rcsb.org)", nil
   input :pdbfile, :text, "Option 2: Content of pdb to align", nil
   input :chain, :string, "PDB chain"
-  input :position, :integer, "Position within PDB chain"
+  input :positions, :array, "Position within PDB chain"
   input :sequence, :text, "Protein sequence"
-  task :pdb_chain_position_in_sequence => :integer do |pdb, pdbfile, chain, chain_position, protein_sequence|
-    atoms = pdb.nil? ? 
-      CMD.cmd('grep "^ATOM"', :in => pdbfile).read :
-      CMD.cmd('grep "^ATOM"', :in => Open.read("http://www.pdb.org/pdb/files/#{ pdb }.pdb.gz")).read
+  task :pdb_chain_position_in_sequence => :array do |pdb, pdbfile, chain, chain_position, protein_sequence|
+    atoms = Structure.atoms(pdb, pdbfile)
 
     chains = {}
     atoms.split("\n").each do |line|
@@ -244,41 +102,11 @@ module Structure
       chains[pdb_chain][aapos] = aa
     end
 
-    alignments = {}
-
     chain_sequence = chains[chain].collect{|aa| aa.nil? ? '?' : Misc::THREE_TO_ONE_AA_CODE[aa.downcase]} * ""
-
     protein_alignment, chain_alignment = SmithWaterman.align(protein_sequence, chain_sequence)
 
-    if chain_position > chain_alignment.length
-      alignments[chain] = nil
-      next
-    end
-
-    gaps = 0
-    chars = 0
-    while (chars - gaps) < chain_position do
-      gaps +=1 if chain_alignment[chars].chr == '-' 
-      chars += 1
-    end
-
-    chain_position_in_alignment = chain_position + gaps
-
-    alignment = if chain_alignment[chain_position_in_alignment-1].chr == '-'
-                   nil
-                 else
-                   protein_position_in_alignment = chain_position_in_alignment - chain_alignment.match(/^(_*)/)[1].length + protein_alignment.match(/^(_*)/)[1].length
-                   protein_gaps = protein_alignment[(0..protein_position_in_alignment-1)].chars.select{|c| c == "-"}.length
-                   protein_position = protein_position_in_alignment - protein_gaps
-                   if chain_sequence[chain_position - 1] != protein_sequence[protein_position - 1]
-                     Log.debug "Not equal: #{chain_sequence[chain_position-4..chain_position+2]} => #{protein_sequence[protein_position-4..protein_position+2]}"
-                   else
-                     Log.debug "Equal: #{chain_sequence[chain_position-4..chain_position+2]} => #{protein_sequence[protein_position-4..protein_position+2]}"
-                     protein_position
-                   end
-                 end
-
-    alignment
+    protein_positions = protein_position.split(/,/).collect{|p| p.strip.to_i}
+    Structure.match_position(chain_positions, chain_alignment, protein_alignment)
   end
   export_exec :pdb_chain_position_in_sequence
 
@@ -305,6 +133,39 @@ module Structure
   end
   export_asynchronous :amino_acid_neighbours_in_pdb
 
+  input :sequence, :text, "Protein sequence"
+  input :pdb, :string, "Option 1: Name of pdb to align (from rcsb.org)", nil
+  input :pdbfile, :text, "Option 2: Content of pdb to align", nil
+  task :alignment_map => :tsv do |protein_sequence, pdb, pdbfile|
+    atoms = Structure.atoms(pdb, pdbfile)
+
+    chains = {}
+    atoms.split("\n").each do |line|
+      chain = line[20..21].strip
+      aapos = line[22..25].to_i
+      aa    = line[17..19]
+      
+      next if aapos < 0
+
+      chains[chain] ||= Array.new
+      chains[chain][aapos] = aa
+    end
+
+    result = TSV.setup({}, :key_field => "Sequence position", :fields => ["Chain:Position in PDB"], :type => :single)
+    chains.each do |chain,chain_sequence|
+      chain_sequence = chain_sequence.collect{|aa| aa.nil? ? '?' : Misc::THREE_TO_ONE_AA_CODE[aa.downcase]} * ""
+
+      chain_alignment, protein_alignment = SmithWaterman.align(chain_sequence, protein_sequence)
+
+      map = Structure.alignment_map(protein_alignment, chain_alignment)
+      map.each do |seq_pos, chain_pos|
+        result[seq_pos] = [chain, chain_pos] * ":"
+      end
+    end
+
+    result
+  end
+  export_exec :alignment_map
 end
 
 if defined? Entity and defined? MutatedIsoform and Entity === MutatedIsoform

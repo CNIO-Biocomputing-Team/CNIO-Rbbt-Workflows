@@ -546,7 +546,6 @@ module Sequence
   task :somatic_snvs_at_genomic_positions => :tsv
   export_asynchronous :somatic_snvs_at_genomic_positions
 
-
   desc "Find genes at particular ranges in a chromosome. Multiple values separated by '|'"
   input :organism, :string, "Organism code", "Hsa"
   input :chromosome, :string, "Chromosome name"

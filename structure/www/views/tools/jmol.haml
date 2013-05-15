@@ -1,0 +1,27 @@
+- jmol_id = 'Jmol-' << protein
+- pdbs = protein.pdbs
+= link_css '/stylesheets/jmol'
+.jmol_tool(id=jmol_id)
+  %h4 Select pdb to load
+  %select.pdb(style='width: 200px')
+    %option(selected="selected") Select a pdb
+    - pdbs.each do |pdb, info| 
+      %option(attr-pdb=pdb)= "#{pdb}"
+ 
+  .window
+
+  :javascript
+
+    deffer(function(){
+      require_js("/js/jmol.js", function(){
+        var tool = $('.jmol_tool').last().jmol_tool({protein:"#{ protein }", sequence: "#{protein.sequence}"});
+
+        $('select.pdb').change(function(){
+          var option = $(this).find('option:selected');
+          var pdb = option.attr('attr-pdb');
+          if (pdb == "Select a pdb") return false
+          tool.jmol_tool("load_pdb", pdb)
+        })
+      })
+    })
+
