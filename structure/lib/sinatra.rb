@@ -1,4 +1,7 @@
 require 'rbbt-util'
+require 'rbbt/rest/web_tool'
+
+include Sinatra::RbbtToolHelper
 
 Rbbt.claim Rbbt.www.views.public.js.jmol.find(:lib), :proc do |dir|
   url = "http://sourceforge.net/projects/jmol/files/Jmol/Version%2013.0/Version%2013.0.13/Jmol-13.0.13-binary.tar.gz/download"
@@ -12,3 +15,6 @@ Rbbt.claim Rbbt.www.views.public.js.jmol.find(:lib), :proc do |dir|
   end
   nil
 end
+
+
+Rbbt.www.views.public.js.jmol.find(:lib).produce

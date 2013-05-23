@@ -20,6 +20,7 @@ module Sequence
   def self.genes_at_genomic_positions(organism, positions)
     chr_positions = {}
     positions.each do |position|
+      next if position.empty?
       chr, pos = position.split(/[\s:\t]/).values_at 0, 1
       chr.sub!(/chr/,'')
       chr_positions[chr] ||= []
@@ -33,6 +34,7 @@ module Sequence
 
     tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Ensembl Gene ID"], :type => :flat, :namespace => organism)
     positions.collect do |position|
+      next if position.empty?
       chr, pos = position.split(/[\s:\t]/).values_at 0, 1
       chr.sub!(/chr/,'')
       tsv[position] = chr_genes[chr].shift.split("|")
@@ -409,55 +411,57 @@ module Sequence
     mutated_isoforms = TSV.setup({}, :type => :flat, :key_field => "Genomic Mutation", :fields => ["Mutated Isoform"], :namespace => organism)
 
     transcript_offsets.each do |mutation, list|
-      chr, pos, mut = mutation.split ":"
+      chr, pos, mut_str = mutation.split ":"
       chr.sub!(/chr/,'')
-      case
-      when mut.nil?
-        alleles = []
-      when mut.index(',') #A,T
-        alleles = mut.split(",").collect{|m| Misc.IUPAC_to_base(m.strip)}.compact.flatten
-      when (mut.length == 1 and mut != '-') #A
-        alleles = Misc.IUPAC_to_base(mut) || []
-      when (mut[0] == "+"[0] and mut.length % 4 == 0) #+ATG
-        alleles = ["Indel"]
-      when (mut[0] == "-"[0] and mut.length % 3 == 0) #---
-        alleles = ["Indel"]
-      when (mut.match(/^[ATCG]+$/) and mut.length > 2 and mut.length % 4 == 0) #GATG where G is the reference
-        alleles = ["Indel"]
-      when (mut[0] != "-"[0] and mut[1] == "-"[0] and mut.length % 4 == 0) #G---
-        alleles = ["Indel"]
-      else #+A - GT etc
-        alleles = ["FrameShift"]
-      end
-
       isoforms = []
-      list.collect{|t| t.split ":"}.each do |transcript, offset, strand|
-        offset = offset.to_i
-        begin
-          codon = codon_at_transcript_position(organism, transcript, offset)
-          case codon
-          when "UTR5", "UTR3"
-            isoforms << [transcript, codon]
-          else
-            triplet, offset, pos = codon.split ":"
-            next if not triplet.length === 3
-            original = Bio::Sequence::NA.new(triplet).translate
-            alleles.each do |allele|
-              case allele
-              when "Indel"
-                isoforms << [transcript, [original, pos.to_i + 1, "Indel"] * ""]
-              when "FrameShift"
-                isoforms << [transcript, [original, pos.to_i + 1, "FrameShift"] * ""]
-              else
-                allele = Misc::BASE2COMPLEMENT[allele] if watson and strand.to_i == -1
-                triplet[offset.to_i] = allele 
-                new = Bio::Sequence::NA .new(triplet).translate
-                isoforms << [transcript, [original, pos.to_i + 1, new] * ""]
+      mut_str.split(',').each do |mut|
+        case
+        when mut.nil?
+          alleles = []
+        when (mut.length == 1 and mut != '-') #A
+          alleles = Misc.IUPAC_to_base(mut) || []
+        when (mut[0] == "+"[0] and mut.length % 4 == 0) #+ATG
+          alleles = ["Indel"]
+        when (mut =~ /^-*$/ and mut.length % 3 == 0) #---
+          alleles = ["Indel"]
+        when ((_dash = mut.scan('-').length) % 3 == (mut.length - _dash)  % 3) #---
+          alleles = ["Indel"]
+        when (mut.match(/^[ATCG]+$/) and mut.length > 2 and mut.length % 4 == 0) #GATG where G is the reference
+          alleles = ["Indel"]
+        when (mut[0] != "-"[0] and mut[1] == "-"[0] and mut.length % 4 == 0) #G---
+          alleles = ["Indel"]
+        else #+A - GT etc
+          alleles = ["FrameShift"]
+        end
+
+        list.collect{|t| t.split ":"}.each do |transcript, offset, strand|
+          offset = offset.to_i
+          begin
+            codon = codon_at_transcript_position(organism, transcript, offset)
+            case codon
+            when "UTR5", "UTR3"
+              isoforms << [transcript, codon]
+            else
+              triplet, offset, pos = codon.split ":"
+              next if not triplet.length === 3
+              original = Bio::Sequence::NA.new(triplet).translate
+              alleles.each do |allele|
+                case allele
+                when "Indel"
+                  isoforms << [transcript, [original, pos.to_i + 1, "Indel"] * ""]
+                when "FrameShift"
+                  isoforms << [transcript, [original, pos.to_i + 1, "FrameShift"] * ""]
+                else
+                  allele = Misc::BASE2COMPLEMENT[allele] if watson and strand.to_i == -1
+                  triplet[offset.to_i] = allele 
+                  new = Bio::Sequence::NA .new(triplet).translate
+                  isoforms << [transcript, [original, pos.to_i + 1, new] * ""]
+                end
               end
             end
+          rescue
+            Log.debug $!.message
           end
-        rescue
-          Log.debug $!.message
         end
       end
 

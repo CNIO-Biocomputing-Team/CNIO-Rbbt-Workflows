@@ -36,10 +36,6 @@ structure=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
     jmol.haml
     isoform_svg.haml
    }
-   partials=partials{
-    jmol.haml
-    jmol.haml.save
-   }
    entity=entity{
     Protein.haml
     Protein.haml.save

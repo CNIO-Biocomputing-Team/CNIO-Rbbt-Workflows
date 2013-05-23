@@ -2,6 +2,7 @@ TextMining=/$PWD filter="*.rb *.genotype *.haml *.sass *.js *.txt *.tsv" {
  workflow.rb
  lib=lib{
   sinatra.rb
+  document_corpus.rb
  }
  share=share{
   install=install{

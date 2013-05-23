@@ -151,7 +151,7 @@ module Structure
       chains[chain][aapos] = aa
     end
 
-    result = TSV.setup({}, :key_field => "Sequence position", :fields => ["Chain:Position in PDB"], :type => :single)
+    result = TSV.setup({}, :key_field => "Sequence position", :fields => ["Chain:Position in PDB"], :type => :flat)
     chains.each do |chain,chain_sequence|
       chain_sequence = chain_sequence.collect{|aa| aa.nil? ? '?' : Misc::THREE_TO_ONE_AA_CODE[aa.downcase]} * ""
 
@@ -159,7 +159,11 @@ module Structure
 
       map = Structure.alignment_map(protein_alignment, chain_alignment)
       map.each do |seq_pos, chain_pos|
-        result[seq_pos] = [chain, chain_pos] * ":"
+        if result[seq_pos].nil?
+          result[seq_pos] = [[chain, chain_pos] * ":"]
+        else
+          result[seq_pos] << [chain, chain_pos] * ":"
+        end
       end
     end
 
