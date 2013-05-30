@@ -9,6 +9,7 @@ module Sequence
 
   extend Workflow
 
+  desc "Process an VCF file and return the list of genomic mutations"
   input :vcf, :text, "VCF file"
   input :expanded, :boolean, "Add additional information", false
   input :unique, :boolean, "Remove repeated mutations", false

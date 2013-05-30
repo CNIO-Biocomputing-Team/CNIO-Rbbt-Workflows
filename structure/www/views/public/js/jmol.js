@@ -48,17 +48,17 @@ $.widget("rbbt.jmol_tool", {
 
   //{{{ JOBS
 
-  _mutation_positions: function(mutations, organism, watson){
-    var mutated_isoforms = rbbt_job("Sequence", "mutated_isoforms_for_genomic_mutations", {organism: organism, watson: watson, mutations: mutations})
+  _mutation_positions: function(mutations, organism, watson, complete){
+    var mutated_isoforms = rbbt_job("Sequence", "mutated_isoforms_for_genomic_mutations", {organism: organism, watson: watson, mutations: mutations}, complete)
     return mutated_isoforms;
   },
 
-  _sequence_positions_in_pdb: function(positions){
-    return(rbbt_job("Structure", "sequence_position_in_pdb", {sequence: this.options.sequence, pdb: this._wrapper().getProperty("filename").filename, positions: positions.join("|")}))
+  _sequence_positions_in_pdb: function(positions, complete){
+    return(rbbt_job("Structure", "sequence_position_in_pdb", {sequence: this.options.sequence, pdb: this._wrapper().getProperty("filename").filename, positions: positions.join("|")}, complete))
   },
 
-  alignment_map: function(){
-    return(rbbt_job("Structure", "alignment_map", {sequence: this.options.sequence, pdb: this._wrapper().getProperty("filename").filename}))
+  alignment_map: function(complete){
+    return(rbbt_job("Structure", "alignment_map", {sequence: this.options.sequence, pdb: this._wrapper().getProperty("filename").filename}, complete))
   },
   
   //{{{ JMOL STUFF
@@ -122,14 +122,15 @@ $.widget("rbbt.jmol_tool", {
   
   mark_sequence_positions: function(positions, color){
     var tool = this;
-    var pdb_positions = tool._sequence_positions_in_pdb(positions)
-    for (var chain in pdb_positions){
-      var position_list = pdb_positions[chain]
-      position_list = $.grep(position_list,function(n){ return(n)});
-      if (position_list != null && position_list.length > 0){
-        tool.mark_position(chain, position_list, color);
+    tool._sequence_positions_in_pdb(positions, function(pdb_positions){
+      for (var chain in pdb_positions){
+        var position_list = pdb_positions[chain]
+        position_list = $.grep(position_list,function(n){ return(n)});
+        if (position_list != null && position_list.length > 0){
+          tool.mark_position(chain, position_list, color);
+        }
       }
-    }
+    })
   },
 
   mark_genomic_mutations: function(list, color){
@@ -138,62 +139,64 @@ $.widget("rbbt.jmol_tool", {
     var info = list_info("GenomicMutation", list);
     var organism = info.organism
     var watson = info.watson
+    var tool = this
 
-    var mutated_isoforms = this._mutation_positions(list_array("GenomicMutation", list), organism, watson);
+    this._mutation_positions(list_array("GenomicMutation", list), organism, watson, function(mutated_isoforms){
+      var all_positions = [];
+      for (var mutation in mutated_isoforms){
+        var mis = mutated_isoforms[mutation];
 
-    var all_positions = [];
-    for (var mutation in mutated_isoforms){
-      var mis = mutated_isoforms[mutation];
+        var good_mis = $.grep(mis, function(mi){ return(null !== mi.match(protein))});
 
-      var good_mis = $.grep(mis, function(mi){ return(null !== mi.match(protein))});
+        var changes = $(good_mis).map(function(){
+          return this.split(/:/)[1];
+        })
 
-      var changes = $(good_mis).map(function(){
-        return this.split(/:/)[1];
-      })
+        var good_changes = $.grep(changes, function(c){ var m = c.match(/([A-Z]*)\d+([A-Za-z*]*)/); return(m != null && m[1] != m[2])});
 
-      var good_changes = $.grep(changes, function(c){ var m = c.match(/([A-Z]*)\d+([A-Za-z*]*)/); return(m != null && m[1] != m[2])});
+        var positions = $(good_changes).map(function(){
+          return this.match(/[A-Z](\d+)[A-Za-z*]/)[1];
+        }).toArray()
 
-      var positions = $(good_changes).map(function(){
-        return this.match(/[A-Z](\d+)[A-Za-z*]/)[1];
-      }).toArray()
+        all_positions = all_positions.concat(positions)
+      }
 
-      all_positions = all_positions.concat(positions)
-    }
-
-    this.mark_sequence_positions(all_positions, color)
+      tool.mark_sequence_positions(all_positions, color)
+    });
   },
 
   mark_aligned_region: function(color){
-    var map = this.alignment_map();
+    var tool = this
+    this.alignment_map(function(map){
+      var chains = {};
+      for(seq_pos in map){
+        var chain_pos_list = map[seq_pos]
+        for (i in chain_pos_list){
+          var chain_pos = chain_pos_list[i];
+          var chain = chain_pos.split(":")[0]
+          var pos = chain_pos.split(":")[1]
 
-    var chains = {};
-    for(seq_pos in map){
-      var chain_pos_list = map[seq_pos]
-      for (i in chain_pos_list){
-        var chain_pos = chain_pos_list[i];
-        var chain = chain_pos.split(":")[0]
-        var pos = chain_pos.split(":")[1]
-
-        if (undefined === chains[chain]){
-          chains[chain] = [];
+          if (undefined === chains[chain]){
+            chains[chain] = [];
+          }
+          chains[chain].push(parseInt(pos));
         }
-        chains[chain].push(parseInt(pos));
       }
-    }
-    for (chain in chains){
-      var positions = chains[chain];
-      positions = $(positions).map(function(){return parseInt(this);}).toArray().sort(function(a,b){return a-b});
-      var last = -1
-      var start = -1;
-      for (var i = 0; i < positions.length; i++){
-        if (positions[i] != last + 1){
-          if (start != -1) { this.mark_region(chain, start, last, color); }
-          start = positions[i]
+      for (chain in chains){
+        var positions = chains[chain];
+        positions = $(positions).map(function(){return parseInt(this);}).toArray().sort(function(a,b){return a-b});
+        var last = -1
+        var start = -1;
+        for (var i = 0; i < positions.length; i++){
+          if (positions[i] != last + 1){
+            if (start != -1) { tool.mark_region(chain, start, last, color); }
+            start = positions[i]
+          }
+          last = positions[i]
         }
-        last = positions[i]
+        if (start != -1) { tool.mark_region(chain, start, last, color); }
       }
-      if (start != -1) { this.mark_region(chain, start, last, color); }
-    }
+    });
   },
 
 });

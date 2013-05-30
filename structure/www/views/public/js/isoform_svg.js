@@ -17,8 +17,8 @@ $.widget("rbbt.isoform_svg_tool", {
 
   //{{{ JOBS
 
-  _mutation_positions: function(mutations, organism, watson){
-    var mutated_isoforms = rbbt_job("Sequence", "mutated_isoforms_for_genomic_mutations", {organism: organism, watson: watson, mutations: mutations});
+  _mutation_positions: function(mutations, organism, watson, complete){
+    var mutated_isoforms = rbbt_job("Sequence", "mutated_isoforms_for_genomic_mutations", {organism: organism, watson: watson, mutations: mutations}, complete);
     return mutated_isoforms;
   },
 
@@ -118,29 +118,30 @@ $.widget("rbbt.isoform_svg_tool", {
     var organism = info.organism
     var watson = info.watson
 
-    var mutated_isoforms = this._mutation_positions(list_array("GenomicMutation", list), organism, watson);
-
     var tool = this;
-    var protein = tool.options.protein;
-    for (var mutation in mutated_isoforms){
-      var mis = mutated_isoforms[mutation];
+    this._mutation_positions(list_array("GenomicMutation", list), organism, watson, function(mutated_isoforms){
 
-      var good_mis = $.grep(mis, function(mi){ return(null !== mi.match(protein))});
+      var protein = tool.options.protein;
+      for (var mutation in mutated_isoforms){
+        var mis = mutated_isoforms[mutation];
 
-      var changes = $(good_mis).map(function(){
-        return this.split(/:/)[1];
-      })
+        var good_mis = $.grep(mis, function(mi){ return(null !== mi.match(protein))});
 
-      var good_changes = $.grep(changes, function(c){ var m = c.match(/([A-Z]*)\d+([A-Za-z*]*)/); return(m != null && m[1] != m[2])});
+        var changes = $(good_mis).map(function(){
+          return this.split(/:/)[1];
+        })
 
-      var positions = $(good_changes).map(function(){
-        return this.match(/[A-Z](\d+)[A-Za-z*]/)[1];
-      }).toArray()
+        var good_changes = $.grep(changes, function(c){ var m = c.match(/([A-Z]*)\d+([A-Za-z*]*)/); return(m != null && m[1] != m[2])});
 
-      if (positions.length > 0){
-        this.mark_position(positions, color, jitter)
-      }
-    }
+        var positions = $(good_changes).map(function(){
+          return this.match(/[A-Z](\d+)[A-Za-z*]/)[1];
+        }).toArray()
+
+        if (positions.length > 0){
+          tool.mark_position(positions, color, jitter)
+        }
+        }
+      });
   },
 
   mark_aligned_region: function(map, color){

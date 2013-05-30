@@ -1,0 +1,30 @@
+- action_card = ActionCard.new 
+
+- action_card.require :list do
+  = action_parameters do
+    - input :list, :select, "Ensembl Gene ID list", nil, :html_options => {:class => 'favourite_lists', :type => 'Gene'}
+
+= action_card_render action_card do
+  - organism = entity.metadata[:organism]
+  - genes = Entity::List.load_list("Gene", list, user)
+  - names = Gene.setup(Translation.job(:translate, list, :genes => genes, :organism =>organism).run, "Associated Gene Name", genes.organism)
+  - ensembl = Gene.setup(Translation.job(:translate, list, :genes => names, :organism =>organism).run, "Associated Gene Name", organism)
+
+  - mutations = entity.mutations_over_gene_list(ensembl)
+  - if mutations and mutations.any?
+    %h3 Mutations
+    - GenomicMutation.setup(mutations, "Mutations over #{list} in #{ entity }", organism, true)
+    = mutations.list_link :length, "Mutations over #{ list } in #{ entity }"
+  - else
+    %p No mutations over genes in this list
+
+  - samples = ensembl.collect{|gene| entity.samples_with_gene_affected[gene]}.compact.flatten.uniq
+  - if samples and samples.any?
+    %h3 Samples
+    - samples = Sample.setup(samples.uniq, entity)
+    = samples.list_link :length, "Samples with mutations over #{ list } in #{ entity }"
+  - else
+    %p No samples affected by mutations in genes of this list
+  
+
+

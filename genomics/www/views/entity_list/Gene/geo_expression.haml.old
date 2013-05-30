@@ -1,0 +1,73 @@
+- require 'rbbt/GE/GEO'
+- require 'rbbt/plots/heatmap'
+
+- dataset ||= nil
+- condition ||= nil
+- value ||= nil
+- scale = true if scale.nil?
+- scale = false if scale == "false"
+- take_log = nil unless defined? take_log
+- take_log = false if take_log == "false"
+- change_dataset = false if not defined?(change_dataset) or change_dataset.nil? or change_dataset == 'false'
+.section
+  - case
+  - when (dataset.nil? || change_dataset)
+
+    - locals[:change_dataset] = false
+    = action_parameters do
+      - input :change_dataset, :boolean, "Change dataset", false, :hide => true
+      - input :dataset, :string, "Dataset code"
+
+  - when (GEO[dataset]["info.yaml"].yaml.include?(:subsets) and condition.nil?)
+
+    - dataset_info = GEO[dataset]["info.yaml"].yaml
+
+    = action_parameters do
+      - input :dataset, :string, "Dataset", dataset, :html_options => {:hidden => true}
+      - if dataset_info.include? :subsets
+        - subsets = dataset_info[:subsets]
+        - conditions = subsets.keys
+        - input :condition, :select, "Condition", conditions.first, :select_options => conditions
+      - input :scale, :boolean, "Scale the values", true
+      - input :take_log, :boolean, "Scale the values", dataset_info[:value_type] == "count"
+
+  - else
+
+    - dataset_info = GEO[dataset]["info.yaml"].yaml
+
+    - if dataset_info[:description] and not dataset_info[:description].empty?
+      %h5== Dataset description:
+      %p=dataset_info[:description]
+
+    - platform = dataset_info[:platform]
+
+    = action_parameters do
+      - input :dataset, :string, "Dataset", dataset, :html_options => {:hidden => true}
+      - if dataset_info.include? :subsets
+        - subsets = dataset_info[:subsets]
+        - conditions = subsets.keys
+        - input :condition, :select, "Condition", conditions.first, :select_options => conditions
+      - input :scale, :boolean, "Scale the values", true
+      - input :take_log, :boolean, "Scale the values", dataset_info[:value_type] == "count"
+      - input :change_dataset, :boolean, "Choose another dataset", false
+    
+    - genes = list.uniq
+
+    - geo_job = GenomeScout.job(:geo_expression, "Linker histones", :genes => genes.ensembl, :dataset => dataset, :condition => condition)
+
+    - gene_expression_values = geo_job.run
+
+    - colors = geo_job.info[:colors]
+    - if colors
+      - leyend = geo_job.info[:leyend]
+      %h3 Leyend
+      %dl
+        - leyend.each do |value, color|
+          %dt= value.empty? ? "Unknown" : value
+          %dd= color
+
+    - add_to_height = geo_job.info[:add_to_height]
+   
+    = resource("Expression #{scale ? "(scaled) " : ""}#{take_log ? "(log) " : ""} (#{condition}) matrix for #{list_id} #{} in #{ dataset }.png", nil, :zoomable_image) do |filename| 
+      - Heatmap.heatmap(gene_expression_values, filename, :scale => scale, :take_log => take_log, :colors => colors)
+

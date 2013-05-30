@@ -38,13 +38,3 @@ module Document
     sentences.select{|s| s.includes? segment }
   end
 end
-  
-
-module Document
-  persist :sentences, :annotations, :annotation_dir => Document.property_cache
-end
-
-corpus = Rbbt.var.document.corpus.find(:lib)
-c = Persist.open_tokyocabinet(corpus, false, :annotations, TokyoCabinet::BDB)
-c.close
-Document.corpus = c

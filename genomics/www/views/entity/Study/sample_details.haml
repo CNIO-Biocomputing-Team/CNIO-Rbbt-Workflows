@@ -1,0 +1,22 @@
+- action_card = ActionCard.new 
+- relevant_mutations = entity.relevant_mutations
+= action_card_render action_card do
+
+  %table
+    %thead
+      %tr
+        %th Samples
+        %th All mutations
+        %th Relevant mutations
+        %th Overlapping genes
+        %th Affected genes
+    %tbody
+      - entity.cohort.each do |genotype|
+        - sample = Sample.setup(genotype.jobname, entity)
+        %tr
+          %td= sample.link
+          %td= genotype.list_link :length, "All mutations in sample #{ sample }"
+          %td= genotype.subset(relevant_mutations).list_link :length, "All relevant mutations in sample #{ sample }"
+          %td= genotype.genes.compact.flatten.uniq.list_link :length, "Genes overlapping mutations in sample #{ sample }"
+          %td= genotype.subset(relevant_mutations).affected_genes.compact.flatten.uniq.list_link :length, "Genes affected by mutations in sample #{ sample }"
+

@@ -38,81 +38,81 @@
 
     %dt COSMIC mutations
     %dd.COSMIC.row
-      %ul.highlight
-        %li
-          %a.highlight(href="#") highlight
-        %li
-          %select(name='color')
-            - %w(red blue green).each do |c|
-              %option(value=c)= c
+      = fragment do
+
+        %ul.highlight
+          %li
+            %a.highlight(href="#") highlight
+          %li
+            %select(name='color')
+              - %w(red blue green).each do |c|
+                %option(value=c)= c
 
 
-      - header "Genomic Mutation", "GenomicMutation", {:organism => "Hsa/jun2011", :watson => true}
-      - filter "Primary site"
-      = table do
+        - header "Genomic Mutation", "GenomicMutation", {:organism => "Hsa/jun2011", :watson => true}
+        - filter "Primary site"
+        = table do
 
-        - tsv = TSV.setup(entity.gene.COSMIC_rsids, :key_field => "Mutation ID", :fields => [], :type => :double)
-        - tsv.attach CMD.cmd('grep -v "_ENST"', :in => COSMIC.mutations.open, :pipe => true), :fields => ["Genomic Mutation", "Primary site", "Site subtype", "Primary histology", "Histology subtype"]
+          - tsv = TSV.setup(entity.gene.COSMIC_rsids, :key_field => "Mutation ID", :fields => [], :type => :double)
+          - tsv.attach CMD.cmd('grep -v "_ENST"', :in => COSMIC.mutations.open, :pipe => true), :fields => ["Genomic Mutation", "Primary site", "Site subtype", "Primary histology", "Histology subtype"]
 
-        - mutations = GenomicMutation.setup(tsv.column("Genomic Mutation").values.flatten, "COSMIC mutations over #{entity.gene}", "Hsa/jun2011", true)
-        - mutation_isoforms = Misc.process_to_hash(mutations){|list| list.mutated_isoforms}
-        - tsv.add_field "Change" do |key, values|
-          - mutation = values[0].first
-          - mis = mutation_isoforms[mutation]
-          - mi = mis.select_by(:protein){|p| p == entity}.select_by(:consequence){|c| c != "SYNONYMOUS"}.first unless mis.nil?
-          - mi.nil? ? [""] : [mi.change]
+          - mutations = GenomicMutation.setup(tsv.column("Genomic Mutation").values.flatten, "COSMIC mutations over #{entity.gene}", "Hsa/jun2011", true)
+          - mutation_isoforms = Misc.process_to_hash(mutations){|list| list.mutated_isoforms}
+          - tsv.add_field "Change" do |key, values|
+            - mutation = values[0].first
+            - mis = mutation_isoforms[mutation]
+            - mi = mis.select_by(:protein){|p| p == entity}.select_by(:consequence){|c| c != "SYNONYMOUS"}.first unless mis.nil?
+            - mi.nil? ? [""] : [mi.change]
 
-        - tsv = tsv.reorder("Genomic Mutation", tsv.fields - ["Genomic Mutation"])
-        - tsv.namespace = "Hsa/jun2011"
-        - tsv.entity_options = {:watson => true}
-        - tsv.select("Change"){|c| ! c.flatten.empty?}
-      
+          - tsv = tsv.reorder("Genomic Mutation", tsv.fields - ["Genomic Mutation"])
+          - tsv.namespace = "Hsa/jun2011"
+          - tsv.entity_options = {:watson => true}
+          - tsv.select("Change"){|c| ! c.flatten.empty?}
 
+        :javascript
 
  
+          $('ul.highlight > li > a.highlight').click(function(){
+            var table = $(this).parents('dd').first().find('table');
+            var url = table.attr('attr-url');
+            var filter = table.attr('attr-filter');
+
+            url = add_parameter(url, '_format', 'json')
+            url = add_parameter(url, '_page', 'all')
+            url = add_parameter(url, '_column', 'Change')
+            if (undefined != filter){ url = add_parameter(url, '_filter',  escape(filter)) }
+
+            $.ajax({
+              url: url,
+              success: function(data){
+                data = JSON.parse(data);
+                var change_positions = [];
+                for (mutation in data){
+                  var changes = data[mutation];
+                  for (i in changes){
+                    var c = changes[i];
+                    if (m = c.match(/(\d+)/)){
+                      change_positions.push(parseInt(m[1]));
+                    }
+                  }
+                }
+                var isoform_svg= $('.isoform_svg_tool');
+                var jmol = $('.jmol_tool');
+                var color = table.parent('.row').find('select').val();
+
+                if(jmol.jmol_tool('is_pdb_loaded')){ jmol.jmol_tool('mark_sequence_positions', change_positions, color); }
+                isoform_svg.isoform_svg_tool('mark_position', change_positions, color);
+              }
+            })
+
+            return false;
+          })
+
      
+
   :javascript
     deffer(function(){
       require_js("/js/protein.js");
-      var form = $('.controls > .action_parameters > form');
-      var submit = form.find('input[type=submit]');
-
-      $('ul.highlight > li > a.highlight').click(function(){
-        var table = $(this).parents('dd').first().find('table');
-        var url = table.attr('attr-url');
-        var filter = table.attr('attr-filter');
-
-        url = add_parameter(url, '_format', 'json')
-        url = add_parameter(url, '_page', 'all')
-        url = add_parameter(url, '_column', 'Change')
-        if (undefined != filter){ url = add_parameter(url, '_filter',  escape(filter)) }
-
-        $.ajax({
-          url: url,
-          success: function(data){
-            data = JSON.parse(data);
-            var change_positions = [];
-            for (mutation in data){
-              var changes = data[mutation];
-              for (i in changes){
-                var c = changes[i];
-                if (m = c.match(/(\d+)/)){
-                  change_positions.push(parseInt(m[1]));
-                }
-              }
-            }
-            var isoform_svg= $('.isoform_svg_tool');
-            var jmol = $('.jmol_tool');
-            var color = table.parent('.row').find('select').val();
-
-            if(jmol.jmol_tool('is_pdb_loaded')){ jmol.jmol_tool('mark_sequence_positions', change_positions, color); }
-            isoform_svg.isoform_svg_tool('mark_position', change_positions, color);
-          }
-        })
-
-        return false;
-      })
-
 
       $('.controls > ul.controls > li > a.clear').click(function(){
         var isoform_svg= $('.isoform_svg_tool');
@@ -137,6 +137,8 @@
         return false;
       })
 
+      var form = $('.controls > .action_parameters > form');
+      var submit = form.find('input[type=submit]');
       submit.click(function(){
         var list = form.find('select[name=list]').val();
         var color = form.find('select[name=color]').val();

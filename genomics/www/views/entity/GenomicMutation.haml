@@ -1,0 +1,93 @@
+- entity_card = EntityCard.new(entity)
+- entity_card.name = "GenomicMutation"
+- entity_card.long_name = entity
+- entity_card.description do
+  - mutated_isoforms = entity.mutated_isoforms || []
+  - utr = mutated_isoforms.select{|mi| mi.in_utr}
+  - synonymous = mutated_isoforms.select{|mi| mi.synonymous}
+  - non_synonymous = mutated_isoforms.select{|mi| mi.non_synonymous}
+  - damaging = mutated_isoforms.select{|mi| mi.damaged?}
+
+  %dl.indented
+
+    - if damaging.any?
+      %dt Damaging protein substitutions
+      %dd
+        %ul.clean
+          - damaging.each do |mi|
+            %li= mi.link
+
+    - if non_synonymous.any?
+      %dt Non-Synonymous protein substitutions
+      %dd
+        %ul.clean
+          - non_synonymous.each do |mi|
+            %li= mi.link
+
+    - if synonymous.any?
+      %dt Synonymous protein substitutions
+      %dd
+        %ul.clean
+          - synonymous.each do |mi|
+            %li= mi.link
+
+    - if utr.any?
+      %dt UTR 
+      %dd
+        %ul.clean
+          - utr.each do |mi|
+            %li= mi.link
+
+
+- entity_card.meta do
+
+  %dl
+
+    %dt Broswer
+    %dd
+      %a(href="#{entity.ensembl_browser}") Ensembl
+    %dd
+      %a(href="#{entity.ucsc_browser}") UCSC
+
+
+    %dt Chromosome
+    %dd= entity.chromosome
+
+    - if entity.watson
+      %dt Reference Allele
+      %dd= entity.reference
+    - else
+      %dt Reference Allele (on gene strand)
+      %dd= entity.gene_strand_reference
+
+    %dt Mutant Allele
+    %dd= entity.base
+
+    %dt Type
+    %dd= entity.type
+
+
+    %dt Overlapping genes
+    %dd= (entity.genes.nil? or entity.genes.empty?) ?  "" : entity.genes.link * ", "
+
+    %dt Damaging
+    %dd
+      = fragment do
+        = entity.damaging?
+
+    %dt Worst Consequence
+    %dd
+      = fragment do
+        - wi = entity.worst_consequence
+        - case
+        - when nil
+          None
+        - when wi.respond_to?(:link)
+          = wi.link
+        - else
+          = wi
+
+
+- entity_card.action_controller = default_action_controller entity
+
+= entity_card_render entity_card

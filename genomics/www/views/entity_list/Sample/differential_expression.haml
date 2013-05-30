@@ -1,0 +1,40 @@
+- study = list.study
+
+- action_card = ActionCard.new do
+  - if study.matrices.length > 1
+    - input :matrix, :select, "Matrix to use", study.matrices.first, :select_options => study.matrices
+  - else
+    - input :matrix, :string, "Matrix to use", study.matrices.first, :hide => true
+  - input :threshold, :float, "Significance threshold", 0.1
+ 
+- action_card.require :threshold
+= action_card_render action_card do
+  - type = matrix
+  - matrix = study.matrix(matrix, "Ensembl Gene ID")
+  - rest = study.samples - list
+  - diffs = matrix.sample_differences(list, rest)
+  - threshold = threshold.to_f
+
+  - entities = nil
+  = table :table_id => "Overexpressed (#{type}) in #{list_id}" do
+    - tsv = Expression.top_up(diffs, threshold)
+    - tsv.entity_options = {:organism => study.organism}
+    - entities = tsv.keys
+    - tsv
+
+  - if entities.respond_to? :link
+    %p
+      Entity list:
+      = entities.list_link :length, "Overexpressed (#{type}) in #{list_id}"
+
+ 
+  = table :table_id => "Underexpressed (#{type}) in #{list_id}" do
+    - tsv = Expression.top_down(diffs, threshold)
+    - tsv.entity_options = {:organism => study.organism}
+    - entities = tsv.keys
+    - tsv
+
+  - if entities.respond_to? :link
+    %p
+      Entity list:
+      = entities.list_link :length, "Underexpressed (#{type}) in #{list_id}"

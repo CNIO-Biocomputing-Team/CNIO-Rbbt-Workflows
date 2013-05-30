@@ -1,0 +1,9 @@
+.edit_list(attr-entity_type="#{page_entity_type.split(":").first}")
+  = action_parameters do
+    - input :list_id, :string, "New list ID", "Copy of #{ list_id }"
+    - list.info.each do |key, value|
+      - next if key.to_sym == :annotation_types or key.to_sym == :annotated_array
+      - input key, :string, "Entity annotation #{ key }", value
+    - input :entities, :array, "Entities", list * "\n", :label => "entities"
+ 
+

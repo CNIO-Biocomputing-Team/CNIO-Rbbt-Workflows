@@ -4,7 +4,7 @@ require 'rbbt/workflow'
 module PdbTools
   extend Workflow
 
-  Rbbt.claim Rbbt.software.opt["pdb-tools"], :install, Rbbt.share.install.software["pdb-tools"]
+  Rbbt.claim Rbbt.software.opt["pdb-tools"], :install, Rbbt.share.install.software["pdb-tools"].find
 
   input :pdb, :text, "PDB file"
   input :distance, :float, "Distance"

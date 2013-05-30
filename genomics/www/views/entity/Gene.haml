@@ -1,0 +1,76 @@
+- entity_card = EntityCard.new(entity)
+
+- entity_card.description do
+  = fragment do 
+    %p= entity.description
+
+
+- entity_card.long_name do
+  = fragment do 
+    = entity.long_name
+
+- entity_card.meta do
+  = fragment do 
+    %dl
+
+      %dt Gene in Ensembl: 
+      %dd
+        %a(href="http://#{Misc.ensembl_server(entity.organism)}/#{Organism.scientific_name(entity.organism).sub(" ","_")}/Gene/Summary?g=#{entity.to "Ensembl Gene ID"}")= entity.to "Ensembl Gene ID"
+      %dt Gene in Entrez:
+
+      %dd
+        %a(href="http://www.ncbi.nlm.nih.gov/gene/#{entity.to "Entrez Gene ID"}")= entity.to "Entrez Gene ID"
+
+    %dl
+
+      %dt Chromosome
+      %dd= entity.chromosome
+
+      %dt Chromosome Range
+      %dd= ChromosomeRange.setup([entity.chromosome, entity.chr_range.begin, entity.chr_range.end] * ":", entity.organism).link
+
+      %dt Strand
+      %dd= entity.strand == "1" ? "Forward (Watson) Strand" : "Reverse (Crick) Strand"
+
+      %dt Exon bases
+      %dd
+        - bases = Gene.gene_list_exon_bases(entity.make_list)
+        - if bases == 0
+          Could not determine the exome size of this gene
+        - else
+          = bases
+
+      %dt Isoforms (# aa; # PDBs)
+      %dd
+        - if entity.transcripts and entity.transcripts.any?
+          = entity.transcripts.protein.compact.reject{|protein| protein.empty?}.collect{|protein| [protein, protein.pdbs || []]}.sort{|a,b| (d = a[1].length <=> b[1].length) == 0 ? (a[0].sequence || "").length <=> (b[0].sequence || "").length : d}.reverse.collect{|protein,pdbs| "#{protein.link} (#{(protein.sequence || "").length}; #{pdbs.length})" } * ", "
+        - else
+          No transcript found for this gene
+
+- list_container = ListContainer.new
+
+- list_container.add "GeneRIF Articles for #{entity.name}" do 
+  - entity.articles
+
+- ddd entity.methods.sort
+- ddd entity.pina_interactors
+- ddd entity.go_bp_terms
+
+- list_container.add "PINA Interactors for #{entity.name}", entity.pina_interactors
+- list_container.add "String Interactors for #{entity.name}", entity.string_interactors
+- list_container.add "Transcription Targets for #{entity.name}", entity.transcription_targets
+- list_container.add "Transcription Regulators for #{entity.name}", entity.transcription_regulators
+- list_container.add "Kegg Pathways for #{entity.name}", entity.to_kegg.nil? ? [] : entity.to_kegg.kegg_pathways
+- list_container.add "NCI Nature Pathways for #{entity.name}", entity.nature_pathways
+- list_container.add "GO BP Terms for #{entity.name}", entity.go_bp_terms
+- list_container.add "GO CC Terms for #{entity.name}", entity.go_cc_terms
+- list_container.add "GO MF Terms for #{entity.name}", entity.go_mf_terms
+- list_container.add "Pfam Domains for #{entity.name}", entity.pfam_domains 
+- list_container.add "InterPro Domains for #{entity.name}", InterProDomain.setup(entity.proteins.interpro_domains.compact.flatten, entity.organism) if entity.proteins.any?
+
+- entity_card.list_container = list_container
+
+- entity_card.action_controller = default_action_controller(entity)
+
+= entity_card_render entity_card
+

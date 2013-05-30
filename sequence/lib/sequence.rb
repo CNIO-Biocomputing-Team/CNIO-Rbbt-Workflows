@@ -414,6 +414,7 @@ module Sequence
       chr, pos, mut_str = mutation.split ":"
       chr.sub!(/chr/,'')
       isoforms = []
+      next if mut_str.nil?
       mut_str.split(',').each do |mut|
         case
         when mut.nil?

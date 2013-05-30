@@ -1,0 +1,25 @@
+- entity_card = EntityCard.new entity
+- name = entity.respond_to?(:name)? entity.name || entity : entity
+
+- if not entity.respond_to?(:long_name)
+  - if entity.respond_to?(:name)
+    - entity_card.name = [entity.base_type, entity] * ": "
+  - else
+    - entity_card.name = entity.base_type
+  - entity_card.long_name = name
+
+- genes = entity.genes
+- list_container = ListContainer.new
+- list_container.add "Genes for #{[entity.base_type, name] * ": "}", genes
+- entity_card.list_container = list_container
+
+- entity_card.description do
+  .description.large-6
+    %p= entity.description
+  -#.image.large-6
+    %img(src='http://www.genome.jp/kegg/pathway/hsa/#{entity}.png' style='width:100%;float:left;margin-right:10px;margin-botton:10px;' title="#{entity.name || entity} pathway")
+
+- entity_card.action_controller = default_action_controller entity
+
+= entity_card_render entity_card
+

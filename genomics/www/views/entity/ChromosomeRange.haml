@@ -1,0 +1,51 @@
+- require 'bio-svgenes'
+
+- entity_card = EntityCard.new entity
+- name = entity.respond_to?(:name)? entity.name || entity : entity
+
+- if not entity.respond_to?(:long_name)
+  - if entity.respond_to?(:name)
+    - entity_card.name = [entity.base_type, entity] * ": "
+  - else
+    - entity_card.name = entity.base_type
+  - entity_card.long_name = name
+
+- entity_card.meta do
+  %dl
+    %dt Broswer
+    %dd
+      %a(href="#{entity.ensembl_browser}") Ensembl
+    %dd
+      %a(href="#{entity.ucsc_browser}") UCSC
+
+
+
+
+- list_container = ListContainer.new
+- list_container.add "Genes for #{[entity.base_type, name] * ": "}", entity.genes
+- entity_card.list_container = list_container
+
+- entity_card.action_controller = default_action_controller entity
+
+- entity_card.description do
+  - svg = nil
+  :ruby
+    p = Bio::Graphics::Page.new(:width => 800,
+                                :height => 200,
+                                :number_of_intervals => 10)
+
+
+    gene_track = p.add_track(:glyph => :generic,
+                             :name => 'Genes',
+                             :label => true  )
+
+    entity.genes.each do |gene|
+      range = gene.chr_range
+      gene_track.add Bio::Graphics::MiniFeature.new(:start => range.begin, :end => range.end, :strand => gene.strand,  :html_params => {:title => gene.name || gene})
+    end
+    svg = p.get_markup
+
+  = svg
+
+= entity_card_render entity_card
+

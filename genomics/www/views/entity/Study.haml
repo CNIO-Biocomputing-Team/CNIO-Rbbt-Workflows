@@ -1,0 +1,83 @@
+- entity_card = EntityCard.new(entity)
+- entity_card.name = entity
+- entity_card.long_name = entity.metadata[:condition]
+- entity_card.meta
+- entity_card.meta do
+  :plain
+    #{hash2dl entity.metadata}
+  %dl
+
+    - samples = entity.dir.samples.exists? ? entity.samples : entity.cohort.collect{|g| g.jobname }
+    - Sample.setup(samples, entity)
+    %dt Samples with clinical annotations
+    %dd= samples.list_link :length, "Samples in #{ entity }"
+
+    - if entity.has_genotypes?
+      - samples = entity.cohort.fields
+      - Sample.setup(samples, entity)
+      %dt Genotyped samples
+      %dd= samples.list_link :length, "Genotyped samples in #{ entity }"
+
+    - if entity.has_cnv?
+      - samples = entity.cnv_cohort.keys
+      - Sample.setup(samples, entity)
+      %dt CNV samples
+      %dd= samples.list_link :length, "CNV samples in #{ entity }"
+
+    - if entity.matrices.include? "gene_expression"
+      - samples = entity.matrix(:gene_expression).samples
+      - Sample.setup(samples, entity)
+      %dt Gene expression samples
+      %dd= samples.list_link :length, "Gene expression samples in #{ entity }"
+
+
+
+
+
+- entity_card.description do
+  - if entity.has_genotypes?
+    .row
+      .mutations.large-6.columns
+        %h3 Mutations
+        = fragment do
+          %table
+            %tbody
+
+              %tr
+                %th All Mutations
+                %td= entity.all_mutations.list_link :length, "All mutations in #{ entity }"
+          
+              %tr
+                %th Relevant Mutations
+                %td= entity.relevant_mutations.list_link :length, "Relevant mutations in #{ entity }"
+
+              %tr
+                %th Damaging Mutations
+                %td= entity.damaging_mutations.list_link :length, "Damaging mutations in #{ entity }"
+
+      .genes.large-6.columns
+        %h3 Genes
+        = fragment do
+          %table
+            %tbody
+
+              %tr
+                %th All Overlapping Genes
+                %td= entity.genes_with_overlapping_mutations.list_link :length, "All overlapping genes in #{ entity }"
+          
+              %tr
+                %th Affected genes
+                %td= entity.affected_genes.list_link :length, "Affected genes in #{ entity }"
+
+              %tr
+                %th Damaged genes
+                %td= entity.damaged_genes.list_link :length, "Damaged genes in #{ entity }"
+
+              %tr
+                %th Recurrent genes
+                %td= entity.recurrent_genes.list_link :length, "Recurrent genes in #{ entity }"
+
+- entity_card.action_controller = default_action_controller entity
+   
+= entity_card_render entity_card
+

@@ -1,0 +1,54 @@
+
+= action_card_render ActionCard.new do
+  - organism = list.organism
+  - watson = list.watson
+  - watson = false if watson == "false"
+  - list.watson = watson
+  - genes_for_mutations = Misc.process_to_hash(list){|list| list.genes}
+  - damage_for_mutations = Misc.process_to_hash(list){|l| l.collect{|m| m.damaging? ? "Damaging" : "Not Damaging"}}
+
+  - mutations = list
+  - mutated_isoforms = Misc.process_to_hash(mutations){|mutations| mutations.mutated_isoforms}
+  - all_mutated_isoforms = MutatedIsoform.setup(mutated_isoforms.values.compact.flatten.uniq, organism)
+  - damage_scores = Misc.process_to_hash(all_mutated_isoforms){|all_mutated_isoforms| all_mutated_isoforms.damage_scores}
+
+  - header "Genes", "Ensembl Gene ID", :organism => organism, :watson => watson
+  - header "Worst Consequence", "Mutated Isoform", :organism => organism
+  - table_options = nil
+
+  - if user
+    - studies = user_studies[user] || []
+    - study = studies.select{|s| list_id =~ / #{s}$/}.first
+    - studies = [study] if study
+    = table table_options do
+      - watson = list.watson
+      - tsv = TSV.setup({}, :key_field => "Genomic Mutation", :fields => ["Ref.", "Sample", "SNP", "Genes", "Worst Consequence", "Type", "Relevant?", "Damaging?"], :type => :double, :namespace => organism, :entity_options => {:watson => watson})
+      - list.each do |mutation|
+        - values = []
+        - values << (watson ? mutation.reference : mutation.gene_strand_reference)
+        - values << studies.collect{|s| s.cohort.select{|g| g.include? mutation }.collect{|g| Sample.setup(g.jobname, s) } }.flatten
+        - values << mutation.dbSNP
+        - values << mutation.genes
+        - values << mutation.worst_consequence
+        - values << mutation.type
+        - values << mutation.relevant?
+        - values << mutation.damaging?
+        - tsv[mutation] = values
+      - tsv.entity_options = {:watson => watson, :organism => organism}
+      - tsv
+  - else
+    = table table_options do
+      - watson = list.watson
+      - tsv = TSV.setup({}, :key_field => "Genomic Mutation", :fields => ["Ref.", "SNP", "Genes", "Worst Consequence", "Type", "Relevant?", "Damaging?"], :type => :double, :namespace => organism, :entity_options => {:watson => watson})
+      - list.each do |mutation|
+        - values = []
+        - values << (watson ? mutation.reference : mutation.gene_strand_reference)
+        - values << mutation.dbSNP
+        - values << mutation.genes
+        - values << mutation.worst_consequence
+        - values << mutation.type
+        - values << mutation.relevant?
+        - values << mutation.damaging?
+        - tsv[mutation] = values
+      - tsv.entity_options = {:watson => watson, :organism => organism}
+      - tsv

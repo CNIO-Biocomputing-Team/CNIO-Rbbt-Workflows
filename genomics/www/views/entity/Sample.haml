@@ -1,0 +1,25 @@
+- entity_card = EntityCard.new(entity)
+- entity_card.name = entity
+- entity_card.long_name = entity.study
+- entity_card.description do
+  = fragment do
+    - sample = entity
+    - list_container = ListContainer.new
+    - if sample.has_genotype?
+      - list_container.add "All mutations in #{ entity }", sample.mutations, "Mutations" 
+      - list_container.add "Affected genes in #{ entity }", sample.affected_genes, "Affected genes"
+
+    - if sample.has_cnvs?
+      - list_container.add  "CNV regions in #{ entity }",  sample.cnvs, "CNV regions"
+      - list_container.add  "Genes gained in #{ entity }",  sample.gained_genes, "Gained genes"
+      - list_container.add "Genes lost in #{ entity }", sample.lost_genes, "Lost genes" 
+
+    - if sample.has_methylation?
+      - list_container.add  "Genes methylated in #{ entity }",  sample.methylated_genes, "Methylated genes"
+      - list_container.add "Genes unmethylated in #{ entity }", sample.unmethylated_genes, "Unmethylated genes" 
+
+    = partial_render('entity_partials/list_container', :container =>  list_container)
+ 
+- entity_card.action_controller = default_action_controller entity
+
+= entity_card_render entity_card

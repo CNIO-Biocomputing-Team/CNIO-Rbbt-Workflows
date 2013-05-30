@@ -1,0 +1,35 @@
+- action_card = ActionCard.new
+ 
+= action_card_render action_card do
+
+  - header "Chromosome", "NumericValue"
+  - header "Start", "NumericValue"
+  - header "End", "NumericValue"
+  - header "COSMIC mutations", "NumericValue"
+  - header "Mutation ratio", "NumericValue"
+  - header "Mutation ratio", "NumericValue"
+  - header "Mutations / Protein size", "NumericValue"
+  - header "Mean mut. distance", "NumericValue"
+  - header "Hotspot %", "NumericValue"
+  = table do
+    - tsv = TSV.setup({}, :key_field => "Ensembl Gene ID", :fields => ["Biotype", "Chromosome", "Start", "End", "Strand", "COSMIC mutations", "Mutations / Protein size", "Mean mut. distance", "Hotspot %"], :type => :list, :namespace => list.organism)
+    - list.compact.each do |gene|
+      - protein = gene.proteins.sort_by{|s| s.sequence.to_s.length}.last
+
+      - cosmic_mutations = gene.COSMIC_mutations.compact.select_by(:relevant?)
+      - protein_mutations = cosmic_mutations.mutated_isoforms.compact.flatten.select{|mi| mi.protein == protein}
+
+      - if protein_mutations.any?
+        - positions = protein_mutations.position.sort.sort 
+        - distances = positions[1..-1].zip(positions).collect{|p1,p2| p1 - p2}
+        - mean_mut_distance = Misc.mean distances
+        - protein_size = protein.sequence.length
+        - hotspot = distances.inject(0){|acc,e|  acc += 1 if e == 0; acc}.to_f / distances.length
+      - else
+        - protein_size = Misc.max(gene.transcripts.sequence.collect{|s| s.length}) / 3
+        - mean_mut_distance = nil
+        - hotspot = 0
+
+      - tsv[gene] = [gene.biotype, gene.chromosome, gene.chr_range.begin, gene.chr_range.end, gene.strand, cosmic_mutations.length, "%4.g" % (cosmic_mutations.length.to_f / protein_size), "%.3g" % (mean_mut_distance || -1), "%.3g" % (hotspot * 100)]
+    - tsv
+

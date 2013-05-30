@@ -1,0 +1,11 @@
+- studies = user_studies[user];
+
+- action_card = ActionCard.new do
+  - input :study, :select, "Study", nil, :select_options => studies
+ 
+- action_card.require :study
+
+= action_card_render action_card do
+  - Study.setup(study)
+  = fragment study.action_link("gene_list_in_study", "#{ list_id } in #{ study }", :list => list_id)
+
