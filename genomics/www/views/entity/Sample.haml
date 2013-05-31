@@ -9,7 +9,7 @@
       - list_container.add "All mutations in #{ entity }", sample.mutations, "Mutations" 
       - list_container.add "Affected genes in #{ entity }", sample.affected_genes, "Affected genes"
 
-    - if sample.has_cnvs?
+    - if sample.has_cnv?
       - list_container.add  "CNV regions in #{ entity }",  sample.cnvs, "CNV regions"
       - list_container.add  "Genes gained in #{ entity }",  sample.gained_genes, "Gained genes"
       - list_container.add "Genes lost in #{ entity }", sample.lost_genes, "Lost genes" 
