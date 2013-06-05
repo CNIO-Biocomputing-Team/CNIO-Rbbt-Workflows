@@ -30,6 +30,10 @@
           %td= list.select_by(:type){|t| t == 'unknown'}.list_link :length, "Unknown mutations in #{ list_id }"
 
         %tr
+          %th Multiple
+          %td= list.select_by(:type){|t| t == 'multiple'}.list_link :length, "Mutations with multiple variant alleles in #{ list_id }"
+
+        %tr
           %th Damaging
           %td= list.select_by(:damaging?).list_link :length, "Damaging mutations in #{ list_id }"
    

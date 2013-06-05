@@ -5,13 +5,21 @@
     - input :matrix, :select, "Matrix to use", study.matrices.first, :select_options => study.matrices
   - else
     - input :matrix, :string, "Matrix to use", study.matrices.first, :hide => true
+  - input :contrast, :select, "Background list", nil, :select_options => {'none' => 'Rest of samples'}, :html_options => {:class => 'favourite_lists', :type => 'Sample'}
   - input :threshold, :float, "Significance threshold", 0.1
+
  
 - action_card.require :threshold
 = action_card_render action_card do
   - type = matrix
   - matrix = study.matrix(matrix, "Ensembl Gene ID")
-  - rest = study.samples - list
+
+  - if contrast and contrast  != 'none'
+    - contrast_list = Entity::List.load_list("Sample", contrast, user)
+    - rest = contrast_list - list
+  - else
+    - rest = study.samples - list
+
   - diffs = matrix.sample_differences(list, rest)
   - threshold = threshold.to_f
 

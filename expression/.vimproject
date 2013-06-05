@@ -1,5 +1,6 @@
 Expression=/$PWD filter="*"{
  workflow.rb
+ workflow.md
  lib=lib{
   sinatra.rb
  }

@@ -6,30 +6,32 @@
 
     %p #{list.length} samples
 
-    = table do
-      - sample_info.select(:key => list).tap{|t| t.entity_options = {:study => list.study}}
+    = fragment do
+      = table :id => "Clinical features of #{ list.study } samples" do
+        - sample_info.select(:key => list).tap{|t| t.entity_options = {:study => list.study}}
 
 
-    - sample_info = list.study.sample_info
-    - all_fields = sample_info.fields
-    - all_field_counts = Misc.process_to_hash(all_fields){|all_fields| all_fields.collect{|f| sample_info.slice(f).values.flatten.compact.uniq.length} }
-    - all_field_counts = Misc.process_to_hash(all_fields){|all_fields| all_fields.collect{|f| sample_info.slice(f).values.flatten.compact.uniq.length} }
-    - good_fields = all_field_counts.select{|f,c| c < sample_info.size.to_i / 10 }.collect{|f,c| f}
+    -#
+      - sample_info = list.study.sample_info
+      - all_fields = sample_info.fields
+      - all_field_counts = Misc.process_to_hash(all_fields){|all_fields| all_fields.collect{|f| sample_info.slice(f).values.flatten.compact.uniq.length} }
+      - all_field_counts = Misc.process_to_hash(all_fields){|all_fields| all_fields.collect{|f| sample_info.slice(f).values.flatten.compact.uniq.length} }
+      - good_fields = all_field_counts.select{|f,c| c < sample_info.size.to_i / 10 }.collect{|f,c| f}
 
-    - if good_fields.length > 0
+      - if good_fields.length > 0
 
-      %h3 Field enrichment analysis
-      %dl.tabs
-        - good_fields.each do |field|
-          - enrichment = sample_info.enrichment list, field, :cutoff => 0.1
-          - enrichment.entity_options = {:study => list.study}
-          %dt= field
-          %dd
-            - if enrichment.length > 0
-              = table do
-                - enrichment
-            - else
-              No enrichment
+        %h3 Field enrichment analysis
+        %dl.tabs
+          - good_fields.each do |field|
+            - enrichment = sample_info.enrichment list, field, :cutoff => 0.1
+            - enrichment.entity_options = {:study => list.study}
+            %dt= field
+            %dd
+              - if enrichment.length > 0
+                = table do
+                  - enrichment
+              - else
+                No enrichment
 
 - entity_list_card.action_controller = default_action_controller list, list_id
 

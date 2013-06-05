@@ -8,11 +8,21 @@
   .mutations
     - organism = entity.metadata[:organism]
     - samples = entity.samples_with_snp snp
+    - homo_samples = entity.samples_with_homozygous_snp snp
+    - hetero_samples = entity.samples_with_heterozygous_snp snp
 
     - if samples and samples.any?
-      %h4 Samples with SNP #{ snp }
-      - samples = Sample.setup(samples.uniq, entity)
-      = samples.list_link :length, "Samples with SNP #{ snp } in #{ entity }"
+
+      %dl
+        %dt Samples with SNP #{ snp }
+        %dd= samples.list_link :length, "Samples with SNP #{ snp } in #{ entity }"
+
+        %dt Samples with homozygous SNP #{ snp }
+        %dd= homo_samples.list_link :length, "Samples with homozygous SNP #{ snp } in #{ entity }"
+
+        %dt Samples with heterozygous SNP #{ snp }
+        %dd= hetero_samples.list_link :length, "Samples with heterozygous SNP #{ snp } in #{ entity }"
+
     - else
       %p No samples with this SNP
 
