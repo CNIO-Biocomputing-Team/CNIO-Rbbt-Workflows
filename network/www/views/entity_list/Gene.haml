@@ -1,0 +1,11 @@
+- entity_list_card = EntityListCard.new list, list_id
+
+- entity_list_card.action_controller = default_action_controller list, list_id
+
+- entity_list_card.description do
+
+  = tool :cytoscape, :genes => list, :id => Misc.snake_case(list_id)
+
+= entity_list_card_render entity_list_card
+
+

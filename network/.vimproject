@@ -1,0 +1,33 @@
+network=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
+ workflow.rb
+ workflow.md
+ lib=lib {
+  sinatra.rb
+  graph.rb
+ }
+ www=www {
+  views=views {
+   compass=compass{
+    cytoscape.sass
+   }
+   public=public{
+    js=js{
+     cytoscape=cytoscape{
+      src=src{
+       AC_OETags.js
+       cytoscapeweb.js
+       json2.js
+      }
+     }
+     cytoscape.js
+    }
+   }
+   tools=tools{
+    cytoscape.haml
+   }
+   entity_list=entity_list{
+    Gene.haml
+   }
+  }
+ }
+}

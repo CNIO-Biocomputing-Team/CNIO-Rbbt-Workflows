@@ -1,0 +1,84 @@
+- id = (rand * 1000).to_i unless defined? id and not (id.nil? or id.empty?)
+
+= link_css '/stylesheets/cytoscape'
+
+.cytoscape_tool
+
+  %dl.tabs
+    %dt Controls
+    %dd.controls
+      .database_edges
+        %h5 Add edges between entities
+        = action_parameters nil, {:klass => ''}, :action => '#' do
+          - input :database, :select, "Association database", :string, :select_options => [:pina, :string]
+      .gene_list
+        %h5 Add genes from a list
+        = action_parameters nil, {:klass => ''}, :action => '#' do
+          - input :gene_list, :select, "Genes to add", nil, :html_options => {:class => 'favourite_lists', :type => 'Gene'}
+
+      .gene_maps
+        %h5 Map gene opacity
+        = action_parameters nil, {:klass => ''}, :action => '#' do
+          - input :gene_map, :select, "Select map to use", nil, :html_options => {:class => 'favourite_maps', :type => 'Gene'}
+          - input :aesthetic, :select, "Aesthetic to map to", :opacity, :select_options => [:opacity, :borderWidth]
+
+    %dt Cytoscape
+    %dd.window(id=id)
+
+
+  :javascript
+    deffer(function(){
+      require_js('/js/cytoscape', function(){
+        var list = #{genes.to_json};
+        var tool = $('.cytoscape_tool').cytoscape_tool({
+          node_click: function(event){
+            var target = event.target;
+            console.log(target);
+            for (var i in target.data) {
+              var variable_name = i;
+              var variable_value = target.data[i];
+              console.log( "event.target.data." + variable_name + " = " + variable_value );
+            }
+          }
+        });
+
+        tool.cytoscape_tool('add_entities', '#{genes.format}', list, #{genes.info.to_json})
+        tool.cytoscape_tool('draw');
+
+        $('dd.controls .database_edges input[type=submit]').click(function(){
+          var database = $(this).parents('form').first().find('select').val()
+
+          tool.cytoscape_tool('add_edges', database)
+          tool.cytoscape_tool('draw');
+
+          return false;
+        })
+
+        $('dd.controls .gene_list input[type=submit]').click(function(){
+          var list_id = $(this).parents('form').first().find('select').val();
+          var list = list_entities("Gene", list_id);
+          var info = list_info("Gene", list_id);
+
+          tool.cytoscape_tool('add_entities', info.format, list)
+          tool.cytoscape_tool('draw');
+
+          return false;
+        })
+
+        $('dd.controls .gene_maps input[type=submit]').click(function(){
+          var form = $(this).closest('form')
+
+          var map_id = form.first().find('div.input.gene_map select').val();
+          var column = form.first().find('div.input.gene_map select').find('option:selected').attr('attr-column');
+          var aesthetic = form.first().find('div.input.aesthetic select').val();
+
+          var map = entity_map("Gene", column, map_id);
+
+          tool.cytoscape_tool('add_map', aesthetic, map)
+
+          return false;
+        })
+
+
+      })
+    })
