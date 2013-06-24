@@ -9,7 +9,7 @@ module Sequence
   input :positions, :array, "Positions"
   def self.genes_at_chr_positions(organism, chromosome, positions)
     index = gene_position_index(organism, chromosome)
-    index.values_at(*positions).collect{|list| list * "|"}
+    index.chunked_values_at(positions).collect{|list| list * "|"}
   end
   task :genes_at_chr_positions => :array
   export_exec :genes_at_chr_positions
@@ -94,7 +94,7 @@ module Sequence
   input :positions, :array, "Positions"
   def self.exons_at_chr_positions(organism, chromosome, positions)
     index = exon_position_index(organism, chromosome)
-    index.values_at(*positions).collect{|list| list * "|"}
+    index.chunked_values_at(positions).collect{|list| list * "|"}
   end
   task :exons_at_chr_positions => :array
   export_exec :exons_at_chr_positions
@@ -320,7 +320,7 @@ module Sequence
       fixed[mutation] = mutation.sub(mut, Misc::BASE2COMPLEMENT[mut]) if (list.any? and list.first.split(":")[2] == "-1")
     end
 
-    fixed.values_at *mutations
+    fixed.chunked_values_at mutations
   end
   task :to_watson => :array
   export_synchronous :to_watson

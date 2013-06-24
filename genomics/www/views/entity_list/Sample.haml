@@ -7,7 +7,7 @@
     %p #{list.length} samples
 
     = fragment do
-      = table :id => "Clinical features of #{ list.study } samples" do
+      = table :table_id => "Clinical features of #{ list_id }" do
         - sample_info.select(:key => list).tap{|t| t.entity_options = {:study => list.study}}
 
 

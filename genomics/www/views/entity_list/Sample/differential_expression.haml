@@ -5,7 +5,7 @@
     - input :matrix, :select, "Matrix to use", study.matrices.first, :select_options => study.matrices
   - else
     - input :matrix, :string, "Matrix to use", study.matrices.first, :hide => true
-  - input :contrast, :select, "Background list", nil, :select_options => {'none' => 'Rest of samples'}, :html_options => {:class => 'favourite_lists', :type => 'Sample'}
+  - input :contrast, :select, "Background list", nil, :select_options => {'none' => 'Rest of samples', 'genotyped' => "Genotyped samples"}, :html_options => {:class => 'favourite_lists', :type => 'Sample'}
   - input :threshold, :float, "Significance threshold", 0.1
 
  
@@ -14,13 +14,22 @@
   - type = matrix
   - matrix = study.matrix(matrix, "Ensembl Gene ID")
 
-  - if contrast and contrast  != 'none'
+  - case contrast
+  - when nil, 'none'
+    - rest = study.samples - list
+  - when 'genotyped'
+    - rest = study.samples.select_by(:has_genotype?) - list
+  - else
     - contrast_list = Entity::List.load_list("Sample", contrast, user)
     - rest = contrast_list - list
-  - else
-    - rest = study.samples - list
 
   - diffs = matrix.sample_differences(list, rest)
+
+  - Open.open(diffs) do |stream|
+    - if not TSV.parse_header(stream).fields.include? "p.values"
+      - raise "The where not enough samples with gene expression data to obtain a p-value"
+     
+
   - threshold = threshold.to_f
 
   - entities = nil
@@ -28,6 +37,7 @@
     - tsv = Expression.top_up(diffs, threshold)
     - tsv.entity_options = {:organism => study.organism}
     - entities = tsv.keys
+    - tsv.cast = :to_f
     - tsv
 
   - if entities.respond_to? :link
@@ -40,6 +50,7 @@
     - tsv = Expression.top_down(diffs, threshold)
     - tsv.entity_options = {:organism => study.organism}
     - entities = tsv.keys
+    - tsv.cast = :to_f
     - tsv
 
   - if entities.respond_to? :link

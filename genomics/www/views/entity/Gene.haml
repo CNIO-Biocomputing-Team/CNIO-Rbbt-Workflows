@@ -43,7 +43,10 @@
       %dt Isoforms (# aa; # PDBs)
       %dd
         - if entity.transcripts and entity.transcripts.any?
-          = entity.transcripts.protein.compact.reject{|protein| protein.empty?}.collect{|protein| [protein, protein.pdbs || []]}.sort{|a,b| (d = a[1].length <=> b[1].length) == 0 ? (a[0].sequence || "").length <=> (b[0].sequence || "").length : d}.reverse.collect{|protein,pdbs| "#{protein.link} (#{(protein.sequence || "").length}; #{pdbs.length})" } * ", "
+          %ul.clean_list
+            - entity.transcripts.protein.compact.reject{|protein| protein.empty?}.collect{|protein| [protein, protein.pdbs || []]}.sort{|a,b| (d = a[1].length <=> b[1].length) == 0 ? (a[0].sequence || "").length <=> (b[0].sequence || "").length : d}.reverse.collect{|protein,pdbs| "#{protein.link} (#{(protein.sequence || "").length}; #{pdbs.length})" }.each do |iso|
+              %li= iso
+
         - else
           No transcript found for this gene
 

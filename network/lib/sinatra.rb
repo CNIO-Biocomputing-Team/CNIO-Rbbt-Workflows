@@ -23,38 +23,45 @@ Rbbt.www.views.public.js.cytoscape.find(:lib).produce
 get '/tool/cytoscape/edge_schema' do
   content_type "application/json"
 
+  content_type "application/json"
   halt 200, Graph.edge_schema.to_json
 end
 
 get '/tool/cytoscape/node_schema' do
   content_type "application/json"
 
+  content_type "application/json"
   halt 200, Graph.node_schema.to_json
 end
 
 post '/tool/cytoscape/get_nodes' do
   type, entity_str = params.values_at :type, :entities
 
-  nodes = Graph.nodes(type, entity_str.split("|"), params)
-
+  @cache_type = :async
   content_type "application/json"
+  cache('get_nodes', :type => type, :entities => entity_str) do
+    nodes = Graph.nodes(type, entity_str.split("|"), params)
 
-  halt 200, nodes.to_json
+    content_type "application/json"
+
+    nodes.to_json
+  end
 end
 
 post '/tool/cytoscape/get_edges' do
   database, entity_json = params.values_at "database", "entities"
 
-  entities = JSON.parse(entity_json)
-
-  all_edges = []
-  entities.each do |type, list|
-    Misc.prepare_entity(list, type, params)
-    all_edges.concat Graph.edges(database, list)
-  end
-
-
+  @cache_type = :async
   content_type "application/json"
-  halt 200, all_edges.to_json
+  cache('get_edges', :database => database, :entity_json => entity_json) do
+    entities = JSON.parse(entity_json)
+
+    all_edges = []
+    entities.each do |type, list|
+      Misc.prepare_entity(list, type, params)
+      all_edges.concat Graph.edges(database, list)
+    end
+    all_edges.to_json
+  end
 end
 

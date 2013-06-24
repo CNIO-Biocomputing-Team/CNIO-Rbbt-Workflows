@@ -14,7 +14,7 @@ module Translation
   def self.translate(organism, format, genes)
     index = index(organism, format)
     index.unnamed = true
-    index.values_at(*genes)
+    index.chunked_values_at(genes)
   end
   task :translate => :array
 

@@ -17,26 +17,45 @@ $.widget("rbbt.cytoscape_tool", {
     entity_options: { organism: "Hsa/jun2011" },
 
     visualStyle:{
-      nodes:{
-        opacity:{ 
-          defaultValue: 0.7,
-          continuousMapper: {
-            attrName: 'opacity',
-            minValue: 0.3,
-            maxValue: 1
-          }
-        },
-        borderWidth:{ 
-          defaultValue: 1,
-          continuousMapper: {
-            attrName: 'borderWidth',
-            minValue: 1,
-            maxValue: 5
-          }
-        }
+     nodes:{
+      size:{ 
+       defaultValue: 25,
+       discreteMapper: {
+        attrName: 'selected',
+        entries:[
+         { attrValue: true, value: 40}
+        ]
+       }
+      },
+      opacity:{ 
+       defaultValue: 0.7,
+       continuousMapper: {
+        attrName: 'opacity',
+        minValue: 0.2,
+        maxValue: 1
+       }
+      },
+      borderWidth:{ 
+       defaultValue: 1,
+       continuousMapper: {
+        attrName: 'borderWidth',
+        minValue: 1,
+        maxValue: 10
+       }
       }
+     },
+     edges:{
+      opacity:{ 
+       defaultValue: 0.7,
+       continuousMapper: {
+        attrName: 'opacity',
+        minValue: 0.2,
+        maxValue: 1
+       }
+      },
+     }
     }
-  },
+   },
 
   _create: function() {
     this.element.addClass('cytoscape_tool_init')
@@ -76,19 +95,23 @@ $.widget("rbbt.cytoscape_tool", {
   //  DRAWING
 
   _get_nodes: function(type, entities){
-    return $.ajax({method: 'POST', url: '/tool/cytoscape/get_nodes', data: $.extend(this.options.entity_options, {type: type, entities: entities.join("|"), _format: 'json'}), async: false}).responseJSON;
+    //return $.ajax({method: 'POST', url: '/tool/cytoscape/get_nodes', data: $.extend(this.options.entity_options, {type: type, entities: entities.join("|"), _format: 'json'}), async: false}).responseJSON;
+    return JSON.parse(get_ajax({method: 'POST', url: '/tool/cytoscape/get_nodes', data: $.extend(this.options.entity_options, {type: type, entities: entities.join("|"), _format: 'json'}), async: false}));
   },
 
   _get_node_schema: function(){
-    return $.ajax({method: 'GET', url: '/tool/cytoscape/node_schema', async: false}).responseJSON;
+    //return $.ajax({method: 'GET', url: '/tool/cytoscape/node_schema', async: false}).responseJSON;
+    return JSON.parse(get_ajax({method: 'GET', url: '/tool/cytoscape/node_schema', async: false}));
   },
 
   _get_edge_schema: function(){
-    return $.ajax({method: 'GET', url: '/tool/cytoscape/edge_schema', async: false}).responseJSON;
+    //return $.ajax({method: 'GET', url: '/tool/cytoscape/edge_schema', async: false}).responseJSON;
+    return JSON.parse(get_ajax({method: 'GET', url: '/tool/cytoscape/edge_schema', async: false}));
   },
 
   _get_edges: function(database){
-    return $.ajax({method: 'POST', url: '/tool/cytoscape/get_edges', data: $.extend(this.options.entity_options, {database: database, entities: JSON.stringify(this.options.entities), _format: 'json'}), async: false}).responseJSON;
+    //return $.ajax({method: 'POST', url: '/tool/cytoscape/get_edges', data: $.extend(this.options.entity_options, {database: database, entities: JSON.stringify(this.options.entities), _format: 'json'}), async: false}).responseJSON;
+    return JSON.parse(get_ajax({method: 'POST', url: '/tool/cytoscape/get_edges', data: $.extend(this.options.entity_options, {database: database, entities: JSON.stringify(this.options.entities), _format: 'json'}), async: false}));
   },
 
   _nodes: function(){
@@ -105,9 +128,11 @@ $.widget("rbbt.cytoscape_tool", {
   _filter_edges: function(edges){
     var tool = this;
     var all_entities = this._all_entities();
+    var found = []
+    $.each(all_entities, function(){found[this] = true})
 
     return $.grep(edges, function(elem){
-      return $.inArray(elem.source, all_entities) >= 0 && $.inArray(elem.target, all_entities) >= 0
+      return(undefined !== found[elem.source] && undefined !== found[elem.target])
     })
   },
 
@@ -125,14 +150,18 @@ $.widget("rbbt.cytoscape_tool", {
   },
 
   _map_continuous: function(aesthetic, map){
-    var max = 0
-    for (entity in map){
-      var value = parseFloat(map[entity]);
-      if (value > max) max = value
-    }
-
     var vis = this._vis();
     var nodes = vis.nodes();
+    var node_ids = $.map(nodes, function(node){return(node.data.id)})
+
+    var max = 0
+    for (entity in map){
+      if ($.inArray(entity, node_ids) > -1){
+       var value = parseFloat(map[entity]);
+       if (value > max) max = value
+      }
+    }
+
     var updated_nodes = []
     for (i in nodes){
       var node = nodes[i];
@@ -169,6 +198,32 @@ $.widget("rbbt.cytoscape_tool", {
 
 
   //  HIGH LEVEL
+  //
+  get_options: function(){
+   return(this.options);
+  },
+
+  draw: function(){
+    this._vis().draw({network: this._network(), visualStyle: this.options.visualStyle})
+  },
+
+  select_entities: function(entities){
+   var vis = this._vis();
+   var nodes = vis.nodes();
+
+   var found = []
+   $.each(entities, function(){found[this] = true})
+   for (i in nodes){
+    var node = nodes[i];
+    if (found[node.data.id]){
+     node.data.selected = true;
+    }else{
+     node.data.selected = false;
+    }
+   }
+   vis.updateData(nodes);
+  },
+
   add_entities: function(type, entities){
     if (undefined === this.options.entities[type]){
       this.options.entities[type] = entities;
@@ -177,21 +232,29 @@ $.widget("rbbt.cytoscape_tool", {
     }
   },
 
+  remove_entities: function(type, entities){
+    if (undefined !== this.options.entities[type]){
+      var current_list = this.options.entities[type]
+      var new_list = [];
+      for (i in current_list){
+       var entity = current_list[i];
+       if ($.inArray(entity, entities) == -1){
+        new_list.push(entity)
+       }else{
+        console.log("Removing: " + entity)
+       }
+      }
+      this.options.entities[type] = new_list
+    }
+  },
+
   add_edges: function(database){
     this.options.databases.push(database);
     this.options.databases = $.unique(this.options.databases);
   },
-
-  draw: function(){
-    this._vis().draw({network: this._network(), visualStyle: this.options.visualStyle})
-  },
   
   add_map: function(aesthetic, map){
-    //this.options.aesthetics[aesthetic] = map;
-    //this._process_maps(this._vis().nodes());
     this._map_continuous(aesthetic, map);
   },
-
-  add_associations: function(database, options){ }
 })
 

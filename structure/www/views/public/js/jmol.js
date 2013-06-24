@@ -33,7 +33,7 @@ $.widget("rbbt.jmol_tool", {
   // PDB LOADING
 
   load_pdb: function(pdb) {
-    this._wrapper().script("load=" + pdb + "; wireframe off; restrict water; select protein; backbone off; color pink;cartoons on;color structure;");
+    this._wrapper().script("load " + pdb + "; wireframe off; restrict water; select protein; backbone off; color pink;cartoons on;color structure;");
   },
 
   is_pdb_loaded: function(){

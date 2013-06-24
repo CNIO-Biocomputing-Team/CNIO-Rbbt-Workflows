@@ -11,7 +11,7 @@
   - header "Mutations / Protein size", "NumericValue"
   - header "Mean mut. distance", "NumericValue"
   - header "Hotspot %", "NumericValue"
-  = table do
+  = table :table_id => "Details for #{ list_id }" do
     - tsv = TSV.setup({}, :key_field => "Ensembl Gene ID", :fields => ["Biotype", "Chromosome", "Start", "End", "Strand", "COSMIC mutations", "Mutations / Protein size", "Mean mut. distance", "Hotspot %"], :type => :list, :namespace => list.organism)
     - list.compact.each do |gene|
       - protein = gene.proteins.sort_by{|s| s.sequence.to_s.length}.last

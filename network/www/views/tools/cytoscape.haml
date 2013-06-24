@@ -10,35 +10,54 @@
       .database_edges
         %h5 Add edges between entities
         = action_parameters nil, {:klass => ''}, :action => '#' do
-          - input :database, :select, "Association database", :string, :select_options => [:pina, :string]
-      .gene_list
-        %h5 Add genes from a list
-        = action_parameters nil, {:klass => ''}, :action => '#' do
-          - input :gene_list, :select, "Genes to add", nil, :html_options => {:class => 'favourite_lists', :type => 'Gene'}
+          - input :database, :select, "Association database", :string, :select_options => [:pina, :string, :go_bp, :nature]
 
-      .gene_maps
-        %h5 Map gene opacity
+      .add_gene_list
+        %h5 Add entities from a list
         = action_parameters nil, {:klass => ''}, :action => '#' do
-          - input :gene_map, :select, "Select map to use", nil, :html_options => {:class => 'favourite_maps', :type => 'Gene'}
+          - input :entities, :select, "Entities to add", nil, :html_options => {:class => 'favourite_lists', :type => 'All'}
+
+      .select_gene_list
+        %h5 Highlight entities from a list
+        = action_parameters nil, {:klass => ''}, :action => '#' do
+          - input :entities, :select, "Genes to add", nil, :html_options => {:class => 'favourite_lists', :type => 'All'}
+
+
+      .maps
+        %h5 Map aesthetic
+        = action_parameters nil, {:klass => ''}, :action => '#' do
+          - input :map, :select, "Select map to use", nil, :html_options => {:class => 'favourite_maps', :type => 'All'}
           - input :aesthetic, :select, "Aesthetic to map to", :opacity, :select_options => [:opacity, :borderWidth]
 
     %dt Cytoscape
-    %dd.window(id=id)
+    %dd
+      .window(id=id)
+      .inspector
 
 
   :javascript
     deffer(function(){
       require_js('/js/cytoscape', function(){
+        var entity_controls = $('<ul id="cytoscape_entity_controls" class="row">').addClass('button-group-list')
+        entity_controls.append($('<li class="column" >').append($('<a>').addClass('remove').attr('href', '#').html('remove')))
         var list = #{genes.to_json};
         var tool = $('.cytoscape_tool').cytoscape_tool({
           node_click: function(event){
             var target = event.target;
-            console.log(target);
             for (var i in target.data) {
               var variable_name = i;
               var variable_value = target.data[i];
               console.log( "event.target.data." + variable_name + " = " + variable_value );
             }
+            var url = target.data.url;
+            open_url_in_reveal('modal1', url, function(){
+              $('#modal1').find(' > .header > .title').append(entity_controls).attr('entity', target.data.id).attr('type', target.data.entity_type)
+            })
+            //$.ajax({url: url, success:function(data){
+            //  show_reveal('modal1', data)
+            //  $('#modal1').foundation('reveal', 'open').find(' > .header > .title').append(entity_controls).attr('entity', target.data.id).attr('type', target.data.entity_type)
+            //}})
+            return(false)
           }
         });
 
@@ -54,31 +73,68 @@
           return false;
         })
 
-        $('dd.controls .gene_list input[type=submit]').click(function(){
+        $('dd.controls .add_gene_list input[type=submit]').click(function(){
+          var option = $(this).closest('form').find('select.favourite_lists').find('option:selected');
+          var type = option.attr('attr-entity_type')
           var list_id = $(this).parents('form').first().find('select').val();
-          var list = list_entities("Gene", list_id);
-          var info = list_info("Gene", list_id);
+          var list = list_entities(type, list_id);
+          var info = list_info(type, list_id);
 
-          tool.cytoscape_tool('add_entities', info.format, list)
+          var format = info.format
+          if (undefined === format){
+            format = type
+          }
+
+          tool.cytoscape_tool('add_entities', format, list)
           tool.cytoscape_tool('draw');
 
           return false;
         })
 
-        $('dd.controls .gene_maps input[type=submit]').click(function(){
+        $('dd.controls .select_gene_list input[type=submit]').click(function(){
+          var option = $(this).closest('form').find('select.favourite_lists').find('option:selected');
+          var type = option.attr('attr-entity_type')
+          var list_id = $(this).parents('form').first().find('select').val();
+          var list = list_entities(type, list_id);
+          var info = list_info(type, list_id);
+
+          var format = info.format
+          if (undefined === format){
+            format = type
+          }
+
+          tool.cytoscape_tool('select_entities', list)
+
+          return false;
+        })
+
+        $('dd.controls .maps input[type=submit]').click(function(){
           var form = $(this).closest('form')
 
-          var map_id = form.first().find('div.input.gene_map select').val();
-          var column = form.first().find('div.input.gene_map select').find('option:selected').attr('attr-column');
+          var map_id = form.first().find('div.input.map select').val();
+          var option = form.first().find('div.input.map option:selected');
+          var type = option.attr('attr-entity_type')
+          var column = form.first().find('div.input.map select').find('option:selected').attr('attr-column');
           var aesthetic = form.first().find('div.input.aesthetic select').val();
 
-          var map = entity_map("Gene", column, map_id);
+          var map = entity_map(type, column, map_id);
 
           tool.cytoscape_tool('add_map', aesthetic, map)
 
           return false;
         })
 
+        $('body').on('click', '#cytoscape_entity_controls a.remove', function(){
+          console.log("CLICK")
+          var link = $(this)
+          var title = link.closest('.title')
+          var entity = title.attr('entity')
+          var type = title.attr('type')
 
+          tool.cytoscape_tool('remove_entities', type, [entity])
+          tool.cytoscape_tool('draw')
+          
+          return false
+        })
       })
     })

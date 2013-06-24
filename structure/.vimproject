@@ -2,10 +2,10 @@ structure=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
  workflow.rb
  test_workflow.rb
  lib=lib {
+  interactome_3d.rb
   old_stuff.rb
   sinatra.rb
   ssw.rb
-  web_tool.rb
  }
  share=share{
   software=software/opt/ssw filter="*"{

@@ -2,22 +2,12 @@
 - studies = user_studies[user]
 
 = action_card_render ActionCard.new do
+  - header "Percent", "NumericValue"
   = table(:list_links => true, :table_id => "mutations_in_#{entity.name || entity}") do
-    - tsv = TSV.setup({}, :key_field => "Study", :fields => ["Genomic Mutation"], :type => :flat)
+    - tsv = TSV.setup({}, :key_field => "Study", :fields => ["Genomic Mutation", "Percent"], :type => :double)
     - studies.each do |study|
-      - tsv[study] = study.all_mutations.select_by(:genes){|genes| genes.include? entity }
+      - mutations = study.all_mutations
+      - next if mutations.empty?
+      - gene_mutations = mutations.select_by(:genes){|genes| genes.include? entity }
+      - tsv[study] = [gene_mutations, [100.0 * gene_mutations.length.to_f / mutations.length]]
     - tsv
-
-
--#
-  - authorize!
-  - studies = user_studies[user]
-
-  .section
-    = table(:list_links => true, :table_id => "mutations_in_#{entity.name || entity}") do
-      - tsv = TSV.setup({}, :key_field => "Study", :fields => ["Genomic Mutation"], :type => :flat)
-      - studies.each do |study|
-        - tsv[study] = study.all_mutations.select_by(:genes){|genes| genes.include? entity }
-      - tsv
-
-

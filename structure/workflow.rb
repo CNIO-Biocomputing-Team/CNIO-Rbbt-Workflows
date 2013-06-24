@@ -4,9 +4,11 @@ require 'rbbt/workflow'
 require 'rbbt/sources/organism'
 require 'rbbt/sources/uniprot'
 require 'ssw'
+require 'interactome_3d'
 
 Workflow.require_workflow 'Translation'
 Workflow.require_workflow 'PdbTools'
+Workflow.require_workflow 'Appris'
 
 module Structure
   extend Workflow
@@ -170,6 +172,40 @@ module Structure
     result
   end
   export_exec :alignment_map
+
+  input :uniprot, :string, "UniPro/SwissProt Accession"
+  task :i3d_protein_pdbs => :array do |uniprot|
+    begin
+      Interctome3d.proteins_tsv.open do |file|
+        CMD.cmd("grep '#{ uniprot}'", :in => file).read.split("\n").collect{|l| l.split("\t").last.split("|")}.flatten
+      end
+    rescue
+      []
+    end
+  end
+
+  input :filename, :string, "Protein pdb filename"
+  task :get_protein_pdb => :text do |filename|
+    Interctome3d.proteins[filename].read
+  end
+  export_exec :i3d_protein_pdbs, :get_protein_pdb
+
+  input :uniprot, :string, "UniPro/SwissProt Accession"
+  task :i3d_interaction_pdbs => :array do |uniprot|
+    begin
+      Interctome3d.interactions_tsv.open do |file|
+        CMD.cmd("grep '#{ uniprot}'", :in => file).read.split("\n").collect{|l| l.split("\t").last.split("|")}.flatten
+      end
+    rescue
+      []
+    end.select{|file| file.index uniprot}
+  end
+
+  input :filename, :string, "Protein pdb filename"
+  task :get_interaction_pdb => :text do |filename|
+    Interctome3d.interactions[filename].read
+  end
+  export_exec :i3d_interaction_pdbs, :get_interaction_pdb
 end
 
 if defined? Entity and defined? MutatedIsoform and Entity === MutatedIsoform

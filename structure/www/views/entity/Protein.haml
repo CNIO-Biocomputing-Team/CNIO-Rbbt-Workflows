@@ -36,6 +36,18 @@
       .jmol.column.small-12
         = tool :jmol, :protein => entity
 
+    %dt Appris
+    %dd.Appris.row
+      %dl
+        - entity.appris_residues.each do |type, list|
+          %dt= Misc.humanize type
+          %dd
+            %li.clean_list
+              - list.each do |range|
+                %li
+                  == (#{range['start']}..#{range['end']})
+                  %a.appris_highlight(href="#" attr-start="#{range['start']}" attr-end="#{range['end']}") Highlight
+
     %dt COSMIC mutations
     %dd.COSMIC.row
       = fragment do
@@ -149,6 +161,30 @@
         var isoform_svg= $('.isoform_svg_tool');
         isoform_svg.isoform_svg_tool('mark_genomic_mutations', list, color);
 
+        return false
+      })
+
+      $('a.appris_highlight').click(function(){
+      console.log(1)
+        var link = $(this)
+        var color = 'red'
+        var start = parseInt(link.attr('attr-start'));
+        var end = parseInt(link.attr('attr-end'));
+
+        var jmol = $('.jmol_tool');
+        var isoform_svg= $('.isoform_svg_tool');
+
+        if (start == end){
+          if(jmol.jmol_tool('is_pdb_loaded')){ jmol.jmol_tool('mark_sequence_positions', [start], color) }
+          isoform_svg.isoform_svg_tool('mark_position', start, color)
+        }else{
+          var positions = [start];
+          var i=start;
+          while(i<stop){i+=1;positions.push(i)}
+
+          if(jmol.jmol_tool('is_pdb_loaded')){ jmol.jmol_tool('mark_sequence_positions', positions, color) }
+          isoform_svg.isoform_svg_tool('mark_region', start, end, color)
+        }
         return false
       })
     })

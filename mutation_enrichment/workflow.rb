@@ -236,6 +236,7 @@ module MutationEnrichment
     all_samples = []
     sample_mutation_tokens = []
     covered_mutations = []
+    log :classify, "Classifying mutations by pathway"
     mutations.slice("Sample").each do |mutation,samples|
       samples = [samples] unless Array === samples
       samples = samples.flatten
@@ -259,7 +260,6 @@ module MutationEnrichment
       end
     end
 
-
     affected_genes = mutation_genes.values.compact.flatten.uniq
 
     set_info :covered_mutations, covered_mutations.length
@@ -269,13 +269,18 @@ module MutationEnrichment
     pathway_expected_counts = {}
     log :expected_counts, "Calculating expected counts"
     pathway_counts.with_monitor :desc => "Calculating expected counts" do
-      pathway_counts.through do |pathway, count|
-        next unless affected_samples_per_pathway.include?(pathway) and affected_samples_per_pathway[pathway].any?
-        ratio = count.to_f / total_covered
-        num_token_list = RSRuby.instance.rbinom(permutations, sample_mutation_tokens.length, ratio)
-        pathway_expected_counts[pathway] = num_token_list.collect{|num_tokens|
-          Misc.sample(sample_mutation_tokens, num_tokens.to_i).uniq.length
-        }
+      pathway_counts.with_unnamed do
+        affected_samples_per_pathway.with_unnamed do
+          pathway_counts.through do |pathway, count|
+            next unless affected_samples_per_pathway.include?(pathway) and affected_samples_per_pathway[pathway].any?
+            ratio = count.to_f / total_covered
+            num_token_list = RSRuby.instance.rbinom(permutations, sample_mutation_tokens.length, ratio)
+            pathway_expected_counts[pathway] = num_token_list.collect{|num_tokens|
+              # Add 1 to estabilize estimates
+              Misc.sample(sample_mutation_tokens, num_tokens.to_i).uniq.length + 1
+            }
+          end
+        end
       end
     end
 
@@ -286,6 +291,7 @@ module MutationEnrichment
       next unless pathway_expected_counts.include? pathway
       pathway_genes = database_p2g[pathway].ensembl
       samples = samples.uniq.select{|sample| (covered_genes_per_samples[sample] & pathway_genes).any?}
+      # Add 1 to estabilize estimates
       count = samples.length
       expected = Misc.mean(pathway_expected_counts[pathway]).floor
       pvalue = pathway_expected_counts[pathway].select{|exp_c| exp_c > count}.length.to_f / permutations
