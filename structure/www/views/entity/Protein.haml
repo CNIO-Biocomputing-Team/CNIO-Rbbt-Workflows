@@ -30,6 +30,34 @@
     %dd.row
       .svg.column.small-12
         = tool :isoform_svg, :protein => entity, :sequence => entity.sequence, :height => 200
+      .sequence.column.small-12
+        %span.sequence(width="100%")= entity.sequence
+        %span.marks(width="100%")
+          - size = entity.sequence.length
+          - marks = size / 10
+          - str = ""
+          - marks.times do |mark|
+            - txt = "|"
+            - str << ("_" * (10 - txt.length)) << txt
+          = str
+        %span.counts(width="100%")
+          - size = entity.sequence.length
+          - marks = size / 10
+          - str = ""
+          - marks.times do |mark|
+            - mark = (mark + 1) * 10
+            - txt = mark.to_s
+            - str << ("_" * (10 - txt.length)) << txt
+          = str
+
+      :javascript
+        deffer(function(){
+          var svg = $('.isoform_svg_tool svg')
+          var start  = parseInt(svg.find('rect.ac').attr('x')) + parseInt(svg.closest('div.svg').css('padding-left'));
+          var end    = svg.attr('width')
+          $('div.sequence').css('margin-left', start).css('width', end - start + 18)
+        })
+
 
     %dt JMOL
     %dd.row
@@ -42,7 +70,7 @@
         - entity.appris_residues.each do |type, list|
           %dt= Misc.humanize type
           %dd
-            %li.clean_list
+            %ul.clean_list
               - list.each do |range|
                 %li
                   == (#{range['start']}..#{range['end']})
@@ -82,9 +110,7 @@
           - tsv.select("Change"){|c| ! c.flatten.empty?}
 
         :javascript
-
- 
-          $('ul.highlight > li > a.highlight').click(function(){
+          $('.COSMIC ul.highlight > li > a.highlight').click(function(){
             var table = $(this).parents('dd').first().find('table');
             var url = table.attr('attr-url');
             var filter = table.attr('attr-filter');
@@ -120,7 +146,86 @@
             return false;
           })
 
-     
+    - if entity.uniprot
+
+      %dt UniProt mutations
+      %dd.UniProt.row
+        = fragment do
+
+          %ul.highlight
+            %li
+              %a.highlight(href="#") highlight
+            %li
+              %select(name='color')
+                - %w(red blue green).each do |c|
+                  %option(value=c)= c
+
+
+          = table :id => "UniProt mutations for #{ entity }" do
+            - tsv = UniProt.annotated_variants.tsv(:persist => true, :type => :double, :key_field => "UniProt Variant ID", :zipped => true)
+            - tsv = tsv.select("UniProt/SwissProt Accession" => entity.uniprot)
+
+            - uniprot_alignment, ensembl_alignment = SmithWaterman.align(UniProt.sequence(entity.uniprot), entity.sequence)
+
+            - alignment_map = Structure.alignment_map(uniprot_alignment, ensembl_alignment)
+            - tsv.add_field "Aligned Change" do |key, values|
+              - change = values["Amino Acid Mutation"]
+              - change = change.first if Array === change
+              - if change.nil? or change.empty?
+                - [""]
+              - else
+                - wt, pos, mut = change.match(/([A-Z])(\d+)([A-Z*])/).values_at 1, 2, 3
+                - pos = alignment_map[pos.to_i]
+                - [[wt, pos, mut] * ""]
+            - tsv
+
+          :javascript
+            $('.UniProt ul.highlight > li > a.highlight').click(function(){
+              var table = $(this).parents('dd').first().find('table');
+              var url = table.attr('attr-url');
+              var filter = table.attr('attr-filter');
+
+              url = add_parameter(url, '_format', 'json')
+              url = add_parameter(url, '_page', 'all')
+              url = add_parameter(url, '_column', 'Aligned Change')
+              if (undefined != filter){ url = add_parameter(url, '_filter',  escape(filter)) }
+
+              $.ajax({
+                url: url,
+                success: function(data){
+                  data = JSON.parse(data);
+                  var change_positions = [];
+                  for (mutation in data){
+                    var changes = data[mutation];
+                    for (i in changes){
+                      var c = changes[i];
+                      if (m = c.match(/(\d+)/)){
+                        change_positions.push(parseInt(m[1]));
+                      }
+                    }
+                  }
+                  var isoform_svg= $('.isoform_svg_tool');
+                  var jmol = $('.jmol_tool');
+                  var color = table.parent('.row').find('select').val();
+
+                  if(jmol.jmol_tool('is_pdb_loaded')){ jmol.jmol_tool('mark_sequence_positions', change_positions, color); }
+                  isoform_svg.isoform_svg_tool('mark_position', change_positions, color);
+                }
+              })
+
+              return false;
+            })
+
+      %dt UniProt features
+      %dd.UniProt_features.row
+
+        %ul
+          - features = UniProt.features(entity.uniprot)
+          - features.each do |info|
+            - type, start, eend, description = info.values_at :type, :start, :end, :description
+            %li
+              == #{ type } (#{start}..#{eend})
+              %a.feature_highlight(href="#" attr-start="#{start}" attr-end="#{eend}") Highlight
 
   :javascript
     deffer(function(){
@@ -164,8 +269,7 @@
         return false
       })
 
-      $('a.appris_highlight').click(function(){
-      console.log(1)
+      $('a.appris_highlight, a.feature_highlight').click(function(){
         var link = $(this)
         var color = 'red'
         var start = parseInt(link.attr('attr-start'));
@@ -178,11 +282,7 @@
           if(jmol.jmol_tool('is_pdb_loaded')){ jmol.jmol_tool('mark_sequence_positions', [start], color) }
           isoform_svg.isoform_svg_tool('mark_position', start, color)
         }else{
-          var positions = [start];
-          var i=start;
-          while(i<stop){i+=1;positions.push(i)}
-
-          if(jmol.jmol_tool('is_pdb_loaded')){ jmol.jmol_tool('mark_sequence_positions', positions, color) }
+          if(jmol.jmol_tool('is_pdb_loaded')){ jmol.jmol_tool('mark_sequence_range', start, end, color) }
           isoform_svg.isoform_svg_tool('mark_region', start, end, color)
         }
         return false

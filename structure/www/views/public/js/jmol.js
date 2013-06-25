@@ -105,11 +105,12 @@ $.widget("rbbt.jmol_tool", {
   },
 
   mark_region: function(chain, start, end, color){
-    if (start == end){
-      this._select(start - 1, chain);
-    }else{
-      this._select((start - 1) + '-' + (end - 1), chain);
-    }
+   if (start == end){
+    this._select(start - 1, chain);
+   }else{
+    this._select((start - 1) + '-' + (end - 1), chain);
+   }
+
     this._style("cartoon")
     if (undefined === color){
       this._halos("color");
@@ -130,6 +131,18 @@ $.widget("rbbt.jmol_tool", {
           tool.mark_position(chain, position_list, color);
         }
       }
+    })
+  },
+
+  mark_sequence_range: function(start, end, color){
+    var tool = this;
+    tool._sequence_positions_in_pdb([start, end], function(pdb_positions){
+     for (var chain in pdb_positions){
+      var positions = pdb_positions[chain]
+      if (null != positions[0] && null != positions[1]){
+       tool.mark_region(chain, positions[0], positions[1], color)
+      }
+     }
     })
   },
 
