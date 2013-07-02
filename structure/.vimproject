@@ -3,7 +3,9 @@ structure=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
  test_workflow.rb
  lib=lib {
   interactome_3d.rb
+  pdb_helper.rb
   old_stuff.rb
+  cosmic_feature_analysis.rb
   sinatra.rb
   ssw.rb
  }
@@ -18,6 +20,7 @@ structure=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
    compass=compass{
     jmol.sass
     isoform_svg.sass
+    sequence.sass
     protein.sass
    }
    public=public{
@@ -29,12 +32,14 @@ structure=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
      }
      jmol.js
      isoform_svg.js
+     sequence.js
      protein.js
     }
    }
    tools=tools{
     jmol.haml
     isoform_svg.haml
+    sequence.haml
    }
    entity=entity{
     Protein.haml

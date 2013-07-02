@@ -4,7 +4,11 @@
 
 - entity_list_card.description do
 
-  = tool :cytoscape, :genes => list, :id => Misc.snake_case(list_id)
+  - g = Graph.new($knowledge_base)
+  - g.entities["Gene"] = list
+
+  = tool :cytoscape, :graph => g, :id => Misc.snake_case(list_id)
+  -#= tool :cytoscape_old, :genes => list, :id => Misc.snake_case(list_id)
 
 = entity_list_card_render entity_list_card
 

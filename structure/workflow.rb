@@ -5,6 +5,7 @@ require 'rbbt/sources/organism'
 require 'rbbt/sources/uniprot'
 require 'ssw'
 require 'interactome_3d'
+require 'pdb_helper'
 
 Workflow.require_workflow 'Translation'
 Workflow.require_workflow 'PdbTools'
@@ -39,21 +40,12 @@ module Structure
     end
   end
 
-  def self.atoms(pdb = nil, pdbfile = nil)
-    return CMD.cmd('grep "^ATOM"', :in => pdbfile).read if (pdb.nil? or pdb.empty?) and not pdbfile.nil? and not pdbfile.empty?
-    return CMD.cmd('grep "^ATOM"', :in => Open.read(pdb)).read if pdb and Open.remote? pdb
-    return CMD.cmd('grep "^ATOM"', :in => Open.read("http://www.pdb.org/pdb/files/#{ pdb }.pdb.gz")).read unless pdb.nil?
-    
-
-    raise "No valid pdb provided: #{ pdb }"
-  end
-
   input :sequence, :text, "Protein sequence"
   input :positions, :array, "Positions within protein sequence"
   input :pdb, :string, "Option 1: Name of pdb to align (from rcsb.org)", nil
   input :pdbfile, :text, "Option 2: Content of pdb to align", nil
   task :sequence_position_in_pdb => :yaml do |protein_sequence, protein_positions, pdb, pdbfile|
-    atoms = Structure.atoms(pdb, pdbfile)
+    atoms = PDBHelper.atoms(pdb, pdbfile)
 
     chains = {}
     atoms.split("\n").each do |line|
@@ -69,7 +61,7 @@ module Structure
 
     alignments = {}
     chains.each do |chain,chain_sequence|
-      log "Pdb #{ pdb}, chain #{ chain }."
+      log pdb, "Pdb #{ pdb}, chain #{ chain }."
 
       chain_sequence = chain_sequence.collect{|aa| aa.nil? ? '?' : Misc::THREE_TO_ONE_AA_CODE[aa.downcase]} * ""
 
@@ -90,7 +82,7 @@ module Structure
   input :positions, :array, "Position within PDB chain"
   input :sequence, :text, "Protein sequence"
   task :pdb_chain_position_in_sequence => :array do |pdb, pdbfile, chain, chain_position, protein_sequence|
-    atoms = Structure.atoms(pdb, pdbfile)
+    atoms = PDBHelper.atoms(pdb, pdbfile)
 
     chains = {}
     atoms.split("\n").each do |line|
@@ -139,7 +131,7 @@ module Structure
   input :pdb, :string, "Option 1: Name of pdb to align (from rcsb.org)", nil
   input :pdbfile, :text, "Option 2: Content of pdb to align", nil
   task :alignment_map => :tsv do |protein_sequence, pdb, pdbfile|
-    atoms = Structure.atoms(pdb, pdbfile)
+    atoms = PDBHelper.atoms(pdb, pdbfile)
 
     chains = {}
     atoms.split("\n").each do |line|
@@ -207,6 +199,8 @@ module Structure
   end
   export_exec :i3d_interaction_pdbs, :get_interaction_pdb
 end
+
+require 'cosmic_feature_analysis'
 
 if defined? Entity and defined? MutatedIsoform and Entity === MutatedIsoform
   module MutatedIsoform

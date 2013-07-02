@@ -1,0 +1,22 @@
+- studies = user_studies[user];
+
+- action_card = ActionCard.new do
+  - input :study, :select, "Study", nil, :select_options => studies
+ 
+- action_card.require :study
+= action_card_render action_card do
+  - Study.setup(study)
+  - s2g = study.samples_with_gene_affected
+  - s2g = TSV.setup(s2g, :key_field => "Ensembl Gene ID", :fields => ["Sample"], :type => :flat).select(list)
+
+  - kb = Graph::KnowledgeBase.new @step.files_dir
+  - kb.associations("mutations", s2g, {})
+  - kb.info["All"] = {:organism => "Hsa/jan2013", :study => study}
+
+  - g = Graph.new(kb)
+  - g.databases << 'mutations'
+  - g.entities["Gene"] = s2g.keys
+  - g.entities["Sample"] = s2g.values.flatten.compact.uniq
+
+  = tool :cytoscape, :graph => g, :id => "Gene sample network #{ study }", :static => true
+

@@ -4,6 +4,10 @@ network=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
  lib=lib {
   sinatra.rb
   graph.rb
+  graph=graph{
+   knowledge_base.rb
+   cytoscape.rb
+  }
  }
  www=www {
   views=views {
@@ -24,9 +28,16 @@ network=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
    }
    tools=tools{
     cytoscape.haml
+    cytoscape_old.haml
    }
    entity_list=entity_list{
     Gene.haml
+    Gene=Gene{
+     sample_gene_network.haml
+    }
+   }
+   network_partials=network_partials{
+    sample_gene_network.haml
    }
   }
  }

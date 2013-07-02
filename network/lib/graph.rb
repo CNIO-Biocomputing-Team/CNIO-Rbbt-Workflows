@@ -1,86 +1,58 @@
-require 'rbbt/util/misc'
+$LOAD_PATH.unshift('./lib')
+require 'rbbt-util'
 require 'rbbt/sources/pina'
 require 'rbbt/sources/string'
+require 'graph/cytoscape'
+require 'graph/knowledge_base'
 
-module Graph
+class Graph
 
-  def self.nodes(type, entities, options)
-    Misc.prepare_entity(entities, type, options)
-    entities.collect{|e|
-      {
-        :id =>  e,
-        :entity_type =>  type,
-        :url =>  Entity::REST.entity_url(e),
-        :label => e.respond_to?(:name) ? (e.name || e) : e
-      }
-    }
+  attr_accessor :knowledge_base, :entities, :databases
+  def initialize(knowledge_base, databases = nil)
+    @knowledge_base = knowledge_base
+    @entities = {}
+    @databases = databases || []
   end
 
-  def self.edges(database, entities)
-    edges = []
-    tsv, field = case database.to_sym
-          when :pina
-            tsv = Pina.protein_protein.tsv :persist => true, :fields => ["Interactor UniProt/SwissProt Accession"], :type => :flat
-            [tsv, "UniProt/SwissProt Accession"]
-          when :string
-            tsv = STRING.protein_protein.tsv :persist => true, :fields => ["Interactor Ensembl Protein ID"], :type => :flat
-            [tsv, "Ensembl Protein ID"]
-          when :go_bp
-            if entities.respond_to? :organism
-              tsv = Organism.gene_go_bp(entities.organism).tsv :persist => true, :fields => ["GO ID"], :type => :flat
-              [tsv, "GO ID"]
-            else
-              return []
-            end
-          when :nature
-            tsv = NCI.nature_pathways.tsv :persist => true, :key_field => "UniProt/SwissProt Accession", :fields => ["NCI Nature Pathway ID"], :type => :flat, :merge => true
-            [tsv, "NCI Nature Pathway ID"]
-          else
-            raise "Database not known: #{ database }"
-          end
-
-    format = entities.respond_to?(:format) ? entities.format : entities.annotation_types.last.to_s
-    assocs = TSV.setup(entities, :key_field => format, :fields => [], :type => :flat)
-    assocs.identifiers = Organism.identifiers(entities.organism).find if entities.respond_to?(:organism) and entities.organism
-
-    begin
-      puts tsv
-      assocs.attach tsv, :fields => tsv.fields.first
-      assocs.fields = [field]
-
-      assocs.through do |entity, associations|
-        associations = associations.gene if Protein === associations
-        associations = associations.ensembl if associations.respond_to? :ensembl
-        associations.each do |association|
-          next if association.nil?
-          edges << {
-            :id => [entity, association] * ":",
-            :source => entity,
-            :target => association
-          }
-        end
-      end
-    rescue
-      Log.debug("Database #{ database } could not be attached to #{ format }: #{$!.message}")
-    end
-
-    edges
+  def edges
+    databases.collect do |database|
+      Graph::Cytoscape.edges(knowledge_base.connections(database, entities))
+    end.flatten
   end
 
-  def self.node_schema
-    [
-      {:name => :entity_type, :type => :string}, 
-      {:name => :label, :type => :string},
-      {:name => :url, :type => :string},
-      {:name => :opacity, :type => :number}, 
-      {:name => :borderWidth, :type => :number}, 
-      {:name => :selected, :type => :boolean, :defValue => false}, 
-    ]
+  def nodes
+    entities.collect do |type, list|
+      info = @knowledge_base.info["All"]
+      info = info.merge(@knowledge_base.info[type]) if @knowledge_base.info[type]
+      Graph::Cytoscape.nodes(type, list, info)
+    end.flatten
   end
 
-  def self.edge_schema
-    [
-      {:name => :opacity, :type => :number}, 
-    ]
+  def network
+    {:data => {:nodes => nodes, :edges => edges}, :dataSchema => {:nodes => Graph::Cytoscape.node_schema, :edges => Graph::Cytoscape.edge_schema}}
   end
+end
+
+if __FILE__ == $0
+  require 'rbbt/sources/pina'
+  require 'rbbt/entity/gene'
+  require 'rbbt/entity/study'
+  require 'rbbt/entity/study/genotypes'
+
+  study = Study.setup("CLL")
+  recurrent_genes = study.recurrent_genes
+
+  kb = Graph::KnowledgeBase.new('./var/knowledge_base')
+  kb.info["Gene"] = recurrent_genes.info
+
+  kb.info["Sample"] = study.samples.select_by(:has_genotype?).info
+
+  kb.associations("pina", Pina.protein_protein, :target => "Interactor UniProt/SwissProt Accession", :target_type => "UniProt/SwissProt Accession")
+  kb.associations("mutations", TSV.setup(study.samples_with_gene_affected, :key_field => "Ensembl Gene ID", :fields => ["Sample"], :type => :flat, :filename => "Genes samples #{ study }"), :target => "Ensembl Gene ID")
+
+  g = Graph.new(kb, %w(pina mutations))
+
+  g.entities["Gene"] = recurrent_genes
+  g.entities["Sample"] = study.samples.select_by(:has_genotype?)
+
 end

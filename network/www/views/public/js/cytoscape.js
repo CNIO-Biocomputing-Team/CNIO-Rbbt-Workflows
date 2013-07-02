@@ -114,6 +114,10 @@ $.widget("rbbt.cytoscape_tool", {
     return JSON.parse(get_ajax({method: 'POST', url: '/tool/cytoscape/get_edges', data: $.extend(this.options.entity_options, {database: database, entities: JSON.stringify(this.options.entities), _format: 'json'}), async: false}));
   },
 
+  _get_network: function(databases){
+    return JSON.parse(get_ajax({method: 'POST', url: '/tool/cytoscape/get_network', data: $.extend(this.options.entity_options, {databases: databases.join("|"), entities: JSON.stringify(this.options.entities), _format: 'json'}), async: false}));
+  },
+
   _nodes: function(){
     var all_nodes = [];
 
@@ -183,7 +187,7 @@ $.widget("rbbt.cytoscape_tool", {
     }
   },
 
-  _network: function(){
+  _network_old: function(){
     var network = {};
     var edges = this._edges();
     var nodes = this._nodes();
@@ -193,6 +197,13 @@ $.widget("rbbt.cytoscape_tool", {
     };
 
     network['dataSchema'] = {nodes: this._get_node_schema(), edges: this._get_edge_schema()}
+    return network;
+  },
+
+  _network: function(){
+    if (undefined !== this.options.network){ return this.options.network}
+    var network = this._get_network(this.options.databases)
+    this.options.network = network
     return network;
   },
 
@@ -225,6 +236,7 @@ $.widget("rbbt.cytoscape_tool", {
   },
 
   add_entities: function(type, entities){
+    this.options.network = undefined
     if (undefined === this.options.entities[type]){
       this.options.entities[type] = entities;
     }else{
@@ -233,6 +245,7 @@ $.widget("rbbt.cytoscape_tool", {
   },
 
   remove_entities: function(type, entities){
+    this.options.network = undefined
     if (undefined !== this.options.entities[type]){
       var current_list = this.options.entities[type]
       var new_list = [];
@@ -249,6 +262,7 @@ $.widget("rbbt.cytoscape_tool", {
   },
 
   add_edges: function(database){
+    this.options.network = undefined
     this.options.databases.push(database);
     this.options.databases = $.unique(this.options.databases);
   },

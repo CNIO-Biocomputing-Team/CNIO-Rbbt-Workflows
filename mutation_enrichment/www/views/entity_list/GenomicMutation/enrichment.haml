@@ -4,7 +4,7 @@
    
 - action_card.require :database, :cutoff
 = action_card_render action_card do
-  = table do
+  = table :table_id => "Mutation enrichment (#{ database }) for #{ list_id }" do
     - tsv = MutationEnrichment.job(:mutation_pathway_enrichment, list_id, :organism => list.organism, :mutations => list, :watson => list.watson, :baseline => :pathway_base_counts, :database => database).run
     - tsv.select("p-value"){|p| p.to_s.to_f < cutoff.to_f}
  

@@ -1,0 +1,13 @@
+- s2g = samples_with_gene_affected
+
+- kb = Graph::KnowledgeBase.new @step.files_dir
+- kb.associations("mutations", s2g, {})
+- kb.info["All"] = {:organism => "Hsa/jan2013"}
+
+- g = Graph.new(kb)
+- g.databases << 'mutations'
+- g.entities["Gene"] = s2g.keys
+- g.entities["Sample"] = s2g.values.flatten.compact.uniq
+
+= tool :cytoscape, :graph => g, :id => "Gene sample network"
+

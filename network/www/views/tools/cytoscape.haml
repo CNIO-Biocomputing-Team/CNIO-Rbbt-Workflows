@@ -1,21 +1,24 @@
 - id = (rand * 1000).to_i unless defined? id and not (id.nil? or id.empty?)
+- id = Misc.snake_case(id)
+- static = false unless defined? static and not static.nil?
 
 = link_css '/stylesheets/cytoscape'
 
-.cytoscape_tool
+.cytoscape_tool(id=id)
 
   %dl.tabs
     %dt Controls
     %dd.controls
-      .database_edges
-        %h5 Add edges between entities
-        = action_parameters nil, {:klass => ''}, :action => '#' do
-          - input :database, :select, "Association database", :string, :select_options => [:pina, :string, :go_bp, :nature]
+      - if not static
+        .database_edges
+          %h5 Add edges between entities
+          = action_parameters nil, {:klass => ''}, :action => '#' do
+            - input :database, :select, "Association database", :string, :select_options => graph.knowledge_base.association_sources
 
-      .add_gene_list
-        %h5 Add entities from a list
-        = action_parameters nil, {:klass => ''}, :action => '#' do
-          - input :entities, :select, "Entities to add", nil, :html_options => {:class => 'favourite_lists', :type => 'All'}
+        .add_gene_list
+          %h5 Add entities from a list
+          = action_parameters nil, {:klass => ''}, :action => '#' do
+            - input :entities, :select, "Entities to add", nil, :html_options => {:class => 'favourite_lists', :type => 'All'}
 
       .select_gene_list
         %h5 Highlight entities from a list
@@ -31,7 +34,7 @@
 
     %dt Cytoscape
     %dd
-      .window(id=id)
+      .window(id="#{id}_window")
       .inspector
 
 
@@ -40,8 +43,11 @@
       require_js('/js/cytoscape', function(){
         var entity_controls = $('<ul id="cytoscape_entity_controls" class="row">').addClass('button-group-list')
         entity_controls.append($('<li class="column" >').append($('<a>').addClass('remove').attr('href', '#').html('remove')))
-        var list = #{genes.to_json};
-        var tool = $('.cytoscape_tool').cytoscape_tool({
+        var cytoscape_id = '##{id}';
+
+        var tool = $(cytoscape_id).cytoscape_tool({
+          network: #{graph.network.to_json},
+
           node_click: function(event){
             var target = event.target;
             for (var i in target.data) {
@@ -50,19 +56,51 @@
               console.log( "event.target.data." + variable_name + " = " + variable_value );
             }
             var url = target.data.url;
+
             open_url_in_reveal('modal1', url, function(){
               $('#modal1').find(' > .header > .title').append(entity_controls).attr('entity', target.data.id).attr('type', target.data.entity_type)
             })
-            //$.ajax({url: url, success:function(data){
-            //  show_reveal('modal1', data)
-            //  $('#modal1').foundation('reveal', 'open').find(' > .header > .title').append(entity_controls).attr('entity', target.data.id).attr('type', target.data.entity_type)
-            //}})
+            return(false)
+          },
+
+          edge_click: function(event){
+            var target = event.target;
+            for (var i in target.data) {
+              var variable_name = i;
+              var variable_value = target.data[i];
+              console.log( "event.target.data." + variable_name + " = " + variable_value );
+            }
+
+            info = JSON.parse(target.data.info)
+
+            var dl = $('<dl>')
+            for (key in info){
+              var value = info[key]
+              dl.append($('<dt>').html(key))
+              dl.append($('<dd>').html(value))
+            }
+
+            show_reveal('modal1', dl)
+            $('#modal1').foundation('reveal', 'open')
+ 
             return(false)
           }
+
         });
 
-        tool.cytoscape_tool('add_entities', '#{genes.format}', list, #{genes.info.to_json})
+        #{graph.entities.keys.collect do |type|
+          "tool.cytoscape_tool('add_entities', '#{type}', #{graph.entities[type].to_json}, #{(graph.knowledge_base.info[type] || {}).to_json});"
+          end * "\n" unless static
+        }
+
+        #{graph.databases.collect do |database|
+          "tool.cytoscape_tool('add_edges', '#{database}');"
+          end * "\n" unless static
+        }
+
         tool.cytoscape_tool('draw');
+
+        //{{{ Controls
 
         $('dd.controls .database_edges input[type=submit]').click(function(){
           var database = $(this).parents('form').first().find('select').val()

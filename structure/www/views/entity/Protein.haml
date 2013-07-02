@@ -1,6 +1,7 @@
 - entity_card = EntityCard.new(entity)
 - entity_card.name = entity
 - entity_card.long_name = "#{entity.gene.name} Protein Isoform"
+- colors = %w(red blue green yellow black white purple)
 - entity_card.meta do
   %dl
     %dt Gene
@@ -24,40 +25,14 @@
 
         = action_parameters nil, {:klass => ''}, :action => '#' do
           - input :list, :select, "Genomic Mutation list", nil, :html_options => {:class => 'favourite_lists', :type => 'GenomicMutation'}
-          - input :color, :select, "Color to use", 'green', :select_options => %w(red green blue)
+          - input :color, :select, "Color to use", 'green', :select_options => colors
 
     %dt SVG
     %dd.row
       .svg.column.small-12
         = tool :isoform_svg, :protein => entity, :sequence => entity.sequence, :height => 200
       .sequence.column.small-12
-        %span.sequence(width="100%")= entity.sequence
-        %span.marks(width="100%")
-          - size = entity.sequence.length
-          - marks = size / 10
-          - str = ""
-          - marks.times do |mark|
-            - txt = "|"
-            - str << ("_" * (10 - txt.length)) << txt
-          = str
-        %span.counts(width="100%")
-          - size = entity.sequence.length
-          - marks = size / 10
-          - str = ""
-          - marks.times do |mark|
-            - mark = (mark + 1) * 10
-            - txt = mark.to_s
-            - str << ("_" * (10 - txt.length)) << txt
-          = str
-
-      :javascript
-        deffer(function(){
-          var svg = $('.isoform_svg_tool svg')
-          var start  = parseInt(svg.find('rect.ac').attr('x')) + parseInt(svg.closest('div.svg').css('padding-left'));
-          var end    = svg.attr('width')
-          $('div.sequence').css('margin-left', start).css('width', end - start + 18)
-        })
-
+        = tool :sequence, :protein => entity, :sequence => entity.sequence, :svg => '.isoform_svg_tool svg', :height => 200
 
     %dt JMOL
     %dd.row
@@ -66,6 +41,9 @@
 
     %dt Appris
     %dd.Appris.row
+      %select(name='color')
+        - colors.each do |c|
+          %option(value=c)= c
       %dl
         - entity.appris_residues.each do |type, list|
           %dt= Misc.humanize type
@@ -73,8 +51,8 @@
             %ul.clean_list
               - list.each do |range|
                 %li
-                  == (#{range['start']}..#{range['end']})
                   %a.appris_highlight(href="#" attr-start="#{range['start']}" attr-end="#{range['end']}") Highlight
+                  == (#{range['start']}..#{range['end']})
 
     %dt COSMIC mutations
     %dd.COSMIC.row
@@ -85,7 +63,7 @@
             %a.highlight(href="#") highlight
           %li
             %select(name='color')
-              - %w(red blue green).each do |c|
+              - colors.each do |c|
                 %option(value=c)= c
 
 
@@ -136,10 +114,12 @@
                 }
                 var isoform_svg= $('.isoform_svg_tool');
                 var jmol = $('.jmol_tool');
+                var sequence = $('.sequence_tool');
                 var color = table.parent('.row').find('select').val();
 
                 if(jmol.jmol_tool('is_pdb_loaded')){ jmol.jmol_tool('mark_sequence_positions', change_positions, color); }
                 isoform_svg.isoform_svg_tool('mark_position', change_positions, color);
+                sequence.sequence_tool('mark_positions', change_positions, color);
               }
             })
 
@@ -147,6 +127,8 @@
           })
 
     - if entity.uniprot
+      - uniprot_alignment, ensembl_alignment = SmithWaterman.align(UniProt.sequence(entity.uniprot), entity.sequence)
+      - alignment_map = Structure.alignment_map(uniprot_alignment, ensembl_alignment)
 
       %dt UniProt mutations
       %dd.UniProt.row
@@ -157,7 +139,7 @@
               %a.highlight(href="#") highlight
             %li
               %select(name='color')
-                - %w(red blue green).each do |c|
+                - colors.each do |c|
                   %option(value=c)= c
 
 
@@ -165,9 +147,6 @@
             - tsv = UniProt.annotated_variants.tsv(:persist => true, :type => :double, :key_field => "UniProt Variant ID", :zipped => true)
             - tsv = tsv.select("UniProt/SwissProt Accession" => entity.uniprot)
 
-            - uniprot_alignment, ensembl_alignment = SmithWaterman.align(UniProt.sequence(entity.uniprot), entity.sequence)
-
-            - alignment_map = Structure.alignment_map(uniprot_alignment, ensembl_alignment)
             - tsv.add_field "Aligned Change" do |key, values|
               - change = values["Amino Acid Mutation"]
               - change = change.first if Array === change
@@ -206,10 +185,12 @@
                   }
                   var isoform_svg= $('.isoform_svg_tool');
                   var jmol = $('.jmol_tool');
+                  var sequence = $('.sequence_tool');
                   var color = table.parent('.row').find('select').val();
 
                   if(jmol.jmol_tool('is_pdb_loaded')){ jmol.jmol_tool('mark_sequence_positions', change_positions, color); }
                   isoform_svg.isoform_svg_tool('mark_position', change_positions, color);
+                  sequence.sequence_tool('mark_positions', change_positions, color);
                 }
               })
 
@@ -218,14 +199,25 @@
 
       %dt UniProt features
       %dd.UniProt_features.row
-
+        %select(name='color')
+          - colors.each do |c|
+            %option(value=c)= c
         %ul
           - features = UniProt.features(entity.uniprot)
-          - features.each do |info|
-            - type, start, eend, description = info.values_at :type, :start, :end, :description
-            %li
-              == #{ type } (#{start}..#{eend})
-              %a.feature_highlight(href="#" attr-start="#{start}" attr-end="#{eend}") Highlight
+          - feature_types = {}
+          - features.each{|info| feature_types[info[:type]] ||= [] ; feature_types[info[:type]] << info}
+          %dl
+            - feature_types.sort_by{|k,v| k}.each do |type, list|
+              %dt= type
+              %dd
+                - list.sort_by{|info| info[:start].to_i}.each do |info|
+                  - type, start, eend, description = info.values_at :type, :start, :end, :description
+                  - start = alignment_map[start]
+                  - eend = alignment_map[eend]
+                  - next if start.nil? or eend.nil?
+                  %li
+                    %a.feature_highlight(href="#" attr-start="#{start}" attr-end="#{eend}") Highlight
+                    == #{ type } (#{start}..#{eend}): #{description}
 
   :javascript
     deffer(function(){
@@ -234,10 +226,12 @@
       $('.controls > ul.controls > li > a.clear').click(function(){
         var isoform_svg= $('.isoform_svg_tool');
         var jmol = $('.jmol_tool');
+        var sequence = $('.sequence_tool');
 
         if(jmol.jmol_tool('is_pdb_loaded')){ jmol.jmol_tool('clear'); }
 
         isoform_svg.isoform_svg_tool('clear');
+        sequence.sequence_tool('clear');
 
         return false;
       })
@@ -266,24 +260,32 @@
         var isoform_svg= $('.isoform_svg_tool');
         isoform_svg.isoform_svg_tool('mark_genomic_mutations', list, color);
 
+        var sequence= $('.sequence_tool');
+        sequence.sequence_tool('mark_genomic_mutations', list, color);
+
         return false
       })
 
       $('a.appris_highlight, a.feature_highlight').click(function(){
         var link = $(this)
-        var color = 'red'
+        var color = link.closest('.row').find('select').val();
         var start = parseInt(link.attr('attr-start'));
         var end = parseInt(link.attr('attr-end'));
 
+        console.log(color)
+
         var jmol = $('.jmol_tool');
         var isoform_svg= $('.isoform_svg_tool');
+        var sequence= $('.sequence_tool');
 
         if (start == end){
           if(jmol.jmol_tool('is_pdb_loaded')){ jmol.jmol_tool('mark_sequence_positions', [start], color) }
           isoform_svg.isoform_svg_tool('mark_position', start, color)
+          sequence.sequence_tool('mark_position', start, color)
         }else{
           if(jmol.jmol_tool('is_pdb_loaded')){ jmol.jmol_tool('mark_sequence_range', start, end, color) }
           isoform_svg.isoform_svg_tool('mark_region', start, end, color)
+          sequence.sequence_tool('mark_region', start, end, color)
         }
         return false
       })
