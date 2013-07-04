@@ -1,4 +1,5 @@
 require 'rbbt/rest/web_tool'
+require 'rbbt/sources/InterPro'
 require 'graph'
 
 include Sinatra::RbbtToolHelper
@@ -29,6 +30,7 @@ $knowledge_base.associations("go_bp", Organism.gene_go_bp("Hsa/jan2013"), :targe
 $knowledge_base.associations("go_mf", Organism.gene_go_mf("Hsa/jan2013"), :target => "GO ID", :type => :flat)
 $knowledge_base.associations("go_cc", Organism.gene_go_cc("Hsa/jan2013"), :target => "GO ID", :type => :flat)
 $knowledge_base.associations("nature", NCI.nature_pathways, :key_field => "UniProt/SwissProt Accession", :target => "NCI Nature Pathway ID", :type => :flat, :merge => true)
+$knowledge_base.associations("interpro", InterPro.protein_domains, :key_field => "UniProt/SwissProt Accession", :fields => ["InterPro ID"], :type => :flat, :merge => false)
 
 Rbbt.www.views.public.js.cytoscape.find(:lib).produce
 

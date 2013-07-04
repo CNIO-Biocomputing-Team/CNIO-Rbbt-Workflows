@@ -24,12 +24,18 @@ module PDBHelper
       atom_positions[code] = [x,y,z]
     }
     atom_positions
-    atoms = atom_positions.keys.sort
+    atoms = atom_positions.keys.sort_by{|atom| atom[9..13].to_i}
 
     atom_distances = []
     atoms.each_with_index do |atom1,i|
       position1 = atom_positions[atom1]
       atoms[i+1..-1].each do |atom2|
+        next if (atom1[9..13] == atom2[9..13]) 
+        next if ((atom1[9..13].to_i == atom2[9..13].to_i + 1) and 
+        ((atom1[0] == "C" and atom2[0] == "N") or 
+          (atom1[0] == "0" and atom2[0] == "N") or 
+          (atom1[0] == "C" and atom2[0..1] == "CA")))
+
         position2 = atom_positions[atom2]
         dx = position1[0] - position2[0]
         dy = position1[1] - position2[1]

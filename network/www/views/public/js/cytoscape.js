@@ -13,6 +13,8 @@ $.widget("rbbt.cytoscape_tool", {
     aesthetics: {},
     node_click: function(event){},
     edge_click: function(event){},
+    menu_items: [],
+    points: undefined,
     init: false,
     entity_options: { organism: "Hsa/jun2011" },
 
@@ -57,26 +59,35 @@ $.widget("rbbt.cytoscape_tool", {
     }
    },
 
+  _update_events: function(){
+   var vis = this._vis()
+   if (this.options.init == false){
+    vis.addListener("click", "nodes", function(event) {
+     this.options.node_click(event);
+     return false;
+    })
+    .addListener("click", "edges", function(event) {
+     this.options.edge_click(event);
+     return false;
+    })
+
+    for (i in this.options.menu_items){
+     var menu_item = this.options.menu_items[i]
+     vis.addContextMenuItem(menu_item.text, menu_item.elem, menu_item.func);
+    }
+    this.options.init = true;
+   }
+  },
+
   _create: function() {
     this.element.addClass('cytoscape_tool_init')
     this.element.find('.window');
     var div_id = this.element.find('.window').attr('id')
+    this.options.idToken = div_id;
     var vis = this.options.vis = new org.cytoscapeweb.Visualization(div_id, this.options);
 
     var tool = this;
-    vis.ready(function(){
-      if (this.options.init == false){
-        vis.addListener("click", "nodes", function(event) {
-          tool.options.node_click(event);
-          return false;
-        })
-        .addListener("click", "edges", function(event) {
-          tool.options.edge_click(event);
-          return false;
-        })
-        this.options.init = true
-      }
-    })
+    vis.ready(function(){tool._update_events()})
   },
 
   _vis: function() {
@@ -209,13 +220,28 @@ $.widget("rbbt.cytoscape_tool", {
 
 
   //  HIGH LEVEL
-  //
+  
+  set_positions: function(points){
+   this.options.points = points
+   this.options.init = false
+  },
+  
+  vis: function(){ return this._vis()},
+
+  add_context_menu_item: function(text, elem, func){
+   this.options.menu_items.push({text:text, elem:elem, func:func})
+  },
+
   get_options: function(){
    return(this.options);
   },
 
   draw: function(){
-    this._vis().draw({network: this._network(), visualStyle: this.options.visualStyle})
+   var config = {network: this._network(), visualStyle: this.options.visualStyle}
+   if (undefined !== this.options.points){
+    config.layout = {name:"Preset", options:{fitToScreen: false, points: this.options.points}}
+   }
+   this._vis().draw(config)
   },
 
   select_entities: function(entities){
@@ -265,6 +291,11 @@ $.widget("rbbt.cytoscape_tool", {
     this.options.network = undefined
     this.options.databases.push(database);
     this.options.databases = $.unique(this.options.databases);
+  },
+
+  set_edges: function(databases){
+    this.options.network = undefined
+    this.options.databases = databases;
   },
   
   add_map: function(aesthetic, map){

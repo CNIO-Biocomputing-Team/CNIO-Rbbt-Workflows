@@ -13,7 +13,7 @@
         .database_edges
           %h5 Add edges between entities
           = action_parameters nil, {:klass => ''}, :action => '#' do
-            - input :database, :select, "Association database", :string, :select_options => graph.knowledge_base.association_sources
+            - input :database, :multiple, "Association database", nil, :choices => graph.knowledge_base.association_sources
 
         .add_gene_list
           %h5 Add entities from a list
@@ -88,6 +88,50 @@
 
         });
 
+        ///////////////////////////////////
+        //{{{ CONTEXT MENU
+        tool.cytoscape_tool('add_context_menu_item', "Select first neighbors", "nodes", function (evt) {
+          var vis = tool.cytoscape_tool('vis');
+          var rootNode = evt.target;
+          var fNeighbors = vis.firstNeighbors([rootNode]);
+          var neighborNodes = fNeighbors.neighbors;
+          vis.select([rootNode]).select(neighborNodes);
+        });
+
+        tool.cytoscape_tool('add_context_menu_item', "Pull first neighbors", "nodes", function (evt) {
+          var vis = tool.cytoscape_tool('vis');
+          var rootNode = evt.target;
+          var all_nodes = vis.nodes();
+          var fNeighbors = vis.firstNeighbors([rootNode]);
+          var neighborNodes = fNeighbors.neighbors;
+          var root_x = rootNode.x
+          var root_y = rootNode.y
+          var zoom = vis.zoom();
+          var dist = 50
+          var points = []
+          var neighborNode_ids = $.map(neighborNodes, function(node){return(node.data.id)})
+          $.each(all_nodes, function(){
+            var node = this
+            if ($.inArray(node.data.id, neighborNode_ids) >= 0){
+              var node_x = node.x
+              var node_y = node.y
+              var dist_x = node_x - root_x
+              var dist_y = node_y - root_y
+              var length = Math.sqrt(Math.pow(dist_x,2) + Math.pow(dist_y, 2))
+              node_x = root_x + (dist_x * ((dist + Math.random() * dist) / length))
+              node_y = root_y + (dist_y * ((dist + Math.random() * dist) / length))
+              node.x = node_x
+              node.y = node_y
+            }
+            points.push({id:node.data.id, x: node.x / zoom, y: node.y / zoom})
+          })
+          tool.cytoscape_tool('set_positions', points)
+          tool.cytoscape_tool('draw')
+        });
+
+        ///////////////////////////////////
+        //{{{ NETWORK INIT
+
         #{graph.entities.keys.collect do |type|
           "tool.cytoscape_tool('add_entities', '#{type}', #{graph.entities[type].to_json}, #{(graph.knowledge_base.info[type] || {}).to_json});"
           end * "\n" unless static
@@ -100,12 +144,15 @@
 
         tool.cytoscape_tool('draw');
 
+        //////////////////////////////////////////////////////////////////
         //{{{ Controls
 
         $('dd.controls .database_edges input[type=submit]').click(function(){
-          var database = $(this).parents('form').first().find('select').val()
+          var databases = $.map($(this).parents('form').first().find('.input.database.multiple').find('input[type=checkbox]:checked'), function(e){
+            return $(e).attr('name').match(/\[(.*)\]/)[1];
+          })
 
-          tool.cytoscape_tool('add_edges', database)
+          tool.cytoscape_tool('set_edges', databases)
           tool.cytoscape_tool('draw');
 
           return false;
@@ -163,7 +210,6 @@
         })
 
         $('body').on('click', '#cytoscape_entity_controls a.remove', function(){
-          console.log("CLICK")
           var link = $(this)
           var title = link.closest('.title')
           var entity = title.attr('entity')

@@ -25,7 +25,7 @@ class Graph
 
       tsv.with_unnamed do
         if translate_source
-          index = Organism.identifiers(info[source_type][:organism]).index :target => info[source_type][:format], :persist => true
+          index = Organism.identifiers(info["All"].merge(info[source_type])[:organism]).index :target => info[source_type][:format], :persist => true
           index.unnamed = true
           tsv.with_monitor :desc => "Translate source" do
             tsv = tsv.process_key do |key|
@@ -36,7 +36,7 @@ class Graph
         end
 
         if translate_target
-          index = Organism.identifiers(info[target_type][:organism]).index :target => info[target_type][:format], :persist => true
+          index = Organism.identifiers(info["All"].merge(info[target_type])[:organism]).index :target => info[target_type][:format], :persist => true
           index.unnamed = true
           tsv.with_monitor :desc => "Translate target" do
             case tsv.type
@@ -68,8 +68,12 @@ class Graph
         source.fields :
         TSV.parse_header(source).fields
 
-      tsv_fields.delete field
-      tsv_fields = [field].concat tsv_fields 
+      if field and not tsv_fields[0] == field
+        tsv_fields.delete field
+        tsv_fields = [field].concat tsv_fields 
+      end
+
+      field ||= tsv_fields.first
 
       options[:fields] = tsv_fields
 
