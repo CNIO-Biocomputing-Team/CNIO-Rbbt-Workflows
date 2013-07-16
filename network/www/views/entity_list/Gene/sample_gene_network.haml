@@ -6,17 +6,45 @@
 - action_card.require :study
 = action_card_render action_card do
   - Study.setup(study)
-  - s2g = study.samples_with_gene_affected
-  - s2g = TSV.setup(s2g, :key_field => "Ensembl Gene ID", :fields => ["Sample"], :type => :flat).select(list)
 
-  - kb = Graph::KnowledgeBase.new @step.files_dir
-  - kb.associations("mutations", s2g, {})
+  - dir = @step.file('knowledge_base')
+  - kb = Graph::KnowledgeBase.new dir
   - kb.info["All"] = {:organism => "Hsa/jan2013", :study => study}
 
   - g = Graph.new(kb)
-  - g.databases << 'mutations'
-  - g.entities["Gene"] = s2g.keys
-  - g.entities["Sample"] = s2g.values.flatten.compact.uniq
+  - g.entities["Gene"] = []
+  - g.entities["Sample"] = []
 
-  = tool :cytoscape, :graph => g, :id => "Gene sample network #{ study }", :static => true
+  - if study.has_genotypes?
+    - s2g = study.samples_with_gene_affected
+    - s2g = TSV.setup(s2g, :key_field => "Ensembl Gene ID", :fields => ["Sample"], :type => :flat).select(list)
+    - kb.associations("mutations", s2g, {})
+    - g.databases << 'mutations'
 
+    - g.entities["Gene"] += s2g.keys
+    - g.entities["Sample"] += s2g.values.flatten.compact.uniq
+    - gene_score = Hash[*s2g.keys.zip(s2g.values.collect{|l| l.length}).flatten]
+
+  - if study.has_cnv?
+    - s2g = study.samples_with_gene_lost
+    - s2g = TSV.setup(s2g, :key_field => "Ensembl Gene ID", :fields => ["Sample"], :type => :flat).select(list)
+    - kb.associations("lost", s2g, {})
+    - g.databases << 'lost'
+    - g.entities["Gene"] += s2g.keys
+    - g.entities["Sample"] += s2g.values.flatten.compact.uniq
+
+    - s2g = study.samples_with_gene_gained
+    - s2g = TSV.setup(s2g, :key_field => "Ensembl Gene ID", :fields => ["Sample"], :type => :flat).select(list)
+    - kb.associations("gained", s2g, {})
+    - g.databases << 'gained'
+    - g.entities["Gene"] += s2g.keys
+    - g.entities["Sample"] += s2g.values.flatten.compact.uniq
+
+  - g.entities["Gene"].uniq!
+  - g.entities["Sample"].uniq!
+ 
+  - g.add_aesthetic :edges, :color, :database, :lost => '#0f0', :gained => '#00f'
+  - g.add_aesthetic :nodes, :borderWidth, :id, gene_score
+
+  = tool :cytoscape, :graph => g, :id => "Gene sample network #{ study }", :static => false, :knowledgebase => dir
+ 

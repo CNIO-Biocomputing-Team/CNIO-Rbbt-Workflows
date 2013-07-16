@@ -2,6 +2,7 @@
 - studies = user_studies[user]
 
 = action_card_render ActionCard.new do
+  
   - header "Percent", "NumericValue"
   = table(:list_links => true, :table_id => "mutations_in_#{entity.name || entity}") do
     - tsv = TSV.setup({}, :key_field => "Study", :fields => ["Genomic Mutation", "Percent"], :type => :double)

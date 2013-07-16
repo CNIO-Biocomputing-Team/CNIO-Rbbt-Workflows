@@ -352,7 +352,7 @@ module Sequence
   def self.reference_allele_at_chr_positions(organism, chromosome, positions)
     begin
       File.open(Organism[File.join(organism, "chromosome_#{chromosome}")].produce.find) do |f|
-        Misc.process_to_hash(positions.sort){|list| list.collect{|position| f.seek(position.to_i - 1); c = f.getc; c.nil? ? nil : c.chr }}.values_at *positions
+        Misc.process_to_hash(positions.sort){|list| list.collect{|position| f.seek(position.to_i - 1); c = f.getc; c.nil? ? nil : c.chr }}.chunked_values_at positions
       end
     rescue
       if $!.message =~ /Fasta file for chromosome not found/i or $!.message =~ /No such file or directory/i

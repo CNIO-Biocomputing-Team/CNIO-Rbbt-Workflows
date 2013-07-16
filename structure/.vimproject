@@ -43,10 +43,6 @@ structure=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
    }
    entity=entity{
     Protein.haml
-    Protein.haml.save
-    Protein=Protein{
-     overlay_mutations_in_pdb.haml
-    }
    }
   }
  }

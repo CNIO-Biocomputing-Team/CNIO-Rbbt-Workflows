@@ -1,6 +1,7 @@
 - id = (rand * 1000).to_i unless defined? id and not (id.nil? or id.empty?)
 - id = Misc.snake_case(id)
 - static = false unless defined? static and not static.nil?
+- knowledgebase = nil unless defined? knowledgebase and not knowledgebase.nil?
 
 = link_css '/stylesheets/cytoscape'
 
@@ -38,15 +39,16 @@
       .inspector
 
 
+  - entity_options = graph.knowledge_base.info.values.inject({}){|acc,e| acc.merge(e)}
   :javascript
     deffer(function(){
       require_js('/js/cytoscape', function(){
-        var entity_controls = $('<ul id="cytoscape_entity_controls" class="row">').addClass('button-group-list')
-        entity_controls.append($('<li class="column" >').append($('<a>').addClass('remove').attr('href', '#').html('remove')))
         var cytoscape_id = '##{id}';
 
         var tool = $(cytoscape_id).cytoscape_tool({
           network: #{graph.network.to_json},
+          knowledgebase: '#{knowledgebase}',
+          entity_options: #{entity_options.to_json},
 
           node_click: function(event){
             var target = event.target;
@@ -58,7 +60,7 @@
             var url = target.data.url;
 
             open_url_in_reveal('modal1', url, function(){
-              $('#modal1').find(' > .header > .title').append(entity_controls).attr('entity', target.data.id).attr('type', target.data.entity_type)
+              $('#modal1').find(' > .header > .title').attr('entity', target.data.id).attr('type', target.data.entity_type)
             })
             return(false)
           },
@@ -90,6 +92,23 @@
 
         ///////////////////////////////////
         //{{{ CONTEXT MENU
+
+        tool.cytoscape_tool('add_context_menu_item', "Remove selected", "none", function (evt) {
+          var vis = tool.cytoscape_tool('vis');
+          var removed_nodes = vis.selected('nodes')
+          $.map(removed_nodes, function(node){
+            tool.cytoscape_tool('remove_entities', node.data.entity_type, [node.data.id])
+          })
+          tool.cytoscape_tool('draw');
+        });
+
+        tool.cytoscape_tool('add_context_menu_item', "Remove", "nodes", function (evt) {
+          var vis = tool.cytoscape_tool('vis');
+          var node = evt.target;
+          tool.cytoscape_tool('remove_entities', node.data.entity_type, [node.data.id])
+          tool.cytoscape_tool('draw');
+        });
+
         tool.cytoscape_tool('add_context_menu_item', "Select first neighbors", "nodes", function (evt) {
           var vis = tool.cytoscape_tool('vis');
           var rootNode = evt.target;
@@ -130,16 +149,27 @@
         });
 
         ///////////////////////////////////
+        //{{{ ENTITY INIT
+
+
+        ///////////////////////////////////
         //{{{ NETWORK INIT
 
         #{graph.entities.keys.collect do |type|
-          "tool.cytoscape_tool('add_entities', '#{type}', #{graph.entities[type].to_json}, #{(graph.knowledge_base.info[type] || {}).to_json});"
+          entity_options = graph.knowledge_base.info["All"].merge(graph.knowledge_base.info[type] || {})
+          "tool.cytoscape_tool('add_entities', '#{type}', #{graph.entities[type].to_json});"
           end * "\n" unless static
         }
 
         #{graph.databases.collect do |database|
           "tool.cytoscape_tool('add_edges', '#{database}');"
           end * "\n" unless static
+        }
+        #{graph.aesthetics.collect do |elem, aesthetics|
+          aesthetics.collect do |aesthetic, info|
+            "tool.cytoscape_tool('aesthetic', '#{ elem }', '#{ aesthetic }', #{info[:map].to_json}, '#{info[:feature]}');"
+          end
+        end.flatten * "\n"
         }
 
         tool.cytoscape_tool('draw');
@@ -207,18 +237,6 @@
           tool.cytoscape_tool('add_map', aesthetic, map)
 
           return false;
-        })
-
-        $('body').on('click', '#cytoscape_entity_controls a.remove', function(){
-          var link = $(this)
-          var title = link.closest('.title')
-          var entity = title.attr('entity')
-          var type = title.attr('type')
-
-          tool.cytoscape_tool('remove_entities', type, [entity])
-          tool.cytoscape_tool('draw')
-          
-          return false
         })
       })
     })

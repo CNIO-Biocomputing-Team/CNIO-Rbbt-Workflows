@@ -1,4 +1,4 @@
-enrichment=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
+enrichment_new=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
  workflow.rb
  workflow.md
  lib=lib {

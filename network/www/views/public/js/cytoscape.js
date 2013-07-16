@@ -4,101 +4,128 @@ require_js('/js/cytoscape/src/cytoscapeweb.js');
 
 $.widget("rbbt.cytoscape_tool", {
 
-  options: {
-    // where you have the Cytoscape Web SWF
-    swfPath: "/js/cytoscape/swf/CytoscapeWeb",
-    flashInstallerPath: "/js/cytoscape/swf/playerProductInstall",
-    entities: {},
-    databases: [],
-    aesthetics: {},
-    node_click: function(event){},
-    edge_click: function(event){},
-    menu_items: [],
-    points: undefined,
-    init: false,
-    entity_options: { organism: "Hsa/jun2011" },
+ options: {
+  // where you have the Cytoscape Web SWF
+  swfPath: "/js/cytoscape/swf/CytoscapeWeb",
+  flashInstallerPath: "/js/cytoscape/swf/playerProductInstall",
+  knowledgebase: undefined,
+  entities: {},
+  databases: [],
+  aesthetics: {nodes:{}, edges:{}},
+  node_click: function(event){},
+  edge_click: function(event){},
+  menu_items: [],
+  points: undefined,
+  init: false,
+  entity_options: { 
+   organism: "Hsa/jun2011" 
+  },
 
-    visualStyle:{
-     nodes:{
-      size:{ 
-       defaultValue: 25,
-       discreteMapper: {
-        attrName: 'selected',
-        entries:[
-         { attrValue: true, value: 40}
-        ]
-       }
-      },
-      opacity:{ 
-       defaultValue: 0.7,
-       continuousMapper: {
-        attrName: 'opacity',
-        minValue: 0.2,
-        maxValue: 1
-       }
-      },
-      borderWidth:{ 
-       defaultValue: 1,
-       continuousMapper: {
-        attrName: 'borderWidth',
-        minValue: 1,
-        maxValue: 10
-       }
-      }
-     },
-     edges:{
-      opacity:{ 
-       defaultValue: 0.7,
-       continuousMapper: {
-        attrName: 'opacity',
-        minValue: 0.2,
-        maxValue: 1
-       }
-      },
+  visualStyle:{
+   nodes:{
+
+    shape:{ 
+     defaultValue: "CIRCLE", passthroughMapper: { attrName: 'shape' } 
+    },
+    size:{ 
+     defaultValue: 25, passthroughMapper: { attrName: 'size' } 
+    },
+    opacity:{ 
+     defaultValue: 0.7,
+     continuousMapper: {
+      attrName: 'opacity',
+      minValue: 0.1,
+      maxValue: 1
      }
-    }
-   },
+    },
+    borderWidth:{ 
+     defaultValue: 1,
+     continuousMapper: {
+      attrName: 'borderWidth',
+      minValue: 1,
+      maxValue: 10
+     }
+    },
+    color: { 
+     defaultValue: "#f5f5f5", passthroughMapper: { attrName: 'color' } 
+    },
 
-  _update_events: function(){
-   var vis = this._vis()
-   if (this.options.init == false){
+   },
+   edges:{
+
+    weight:{ 
+     defaultValue: 3, passthroughMapper: { attrName: 'weight' } 
+    },
+
+    width:{ 
+     defaultValue: 3,
+     continuousMapper: {
+      attrName: 'width',
+      minValue: 1,
+      maxValue: 10
+     }
+    },
+    opacity:{ 
+     defaultValue: 0.3,
+     continuousMapper: {
+      attrName: 'opacity',
+      minValue: 0.2,
+      maxValue: 1
+     }
+    },
+    color: { 
+     defaultValue: "#999", passthroughMapper: { attrName: 'color' } 
+    },
+   },
+  }
+ },
+
+ _update_events: function(){
+  var vis = this._vis()
+  var tool = this;
+  vis.ready(function(){
+   tool._process_aesthetics();
+   if (tool.options.init == false){
+    vis.removeListener("click", "nodes")
+    vis.removeListener("click", "edges")
     vis.addListener("click", "nodes", function(event) {
-     this.options.node_click(event);
+     tool.options.node_click(event);
      return false;
     })
     .addListener("click", "edges", function(event) {
-     this.options.edge_click(event);
+     tool.options.edge_click(event);
      return false;
     })
-
-    for (i in this.options.menu_items){
-     var menu_item = this.options.menu_items[i]
-     vis.addContextMenuItem(menu_item.text, menu_item.elem, menu_item.func);
-    }
-    this.options.init = true;
+    tool.options.init = true;
    }
-  },
 
-  _create: function() {
-    this.element.addClass('cytoscape_tool_init')
-    this.element.find('.window');
-    var div_id = this.element.find('.window').attr('id')
-    this.options.idToken = div_id;
-    var vis = this.options.vis = new org.cytoscapeweb.Visualization(div_id, this.options);
+   for (i in this.options.menu_items){
+    var menu_item = this.options.menu_items[i]
+    vis.addContextMenuItem(menu_item.text, menu_item.elem, menu_item.func);
+   }
+  })
+ },
 
-    var tool = this;
-    vis.ready(function(){tool._update_events()})
-  },
+ _create: function() {
+  this.element.addClass('cytoscape_tool_init')
+  this.element.find('.window');
+  var div_id = this.element.find('.window').attr('id')
+  this.options.idToken = div_id;
+  var vis = this.options.vis = new org.cytoscapeweb.Visualization(div_id, this.options);
+  this.options.init = false
 
-  _vis: function() {
-    return this.options.vis;
-  },
+  var tool = this;
+ },
 
-  _all_entities: function(){
-    var result = [];
-    var entities = this.options.entities;
-    for (var type in entities){
-      result = result.concat(entities[type]);
+ _vis: function() {
+  return this.options.vis;
+ },
+
+ _all_entities: function(){
+  var result = [];
+  var entities = this.options.entities;
+  for (var type in entities){
+  result = result.concat(entities[type]);
     }
     return result
   },
@@ -126,7 +153,7 @@ $.widget("rbbt.cytoscape_tool", {
   },
 
   _get_network: function(databases){
-    return JSON.parse(get_ajax({method: 'POST', url: '/tool/cytoscape/get_network', data: $.extend(this.options.entity_options, {databases: databases.join("|"), entities: JSON.stringify(this.options.entities), _format: 'json'}), async: false}));
+    return JSON.parse(get_ajax({method: 'POST', url: '/tool/cytoscape/get_network', data: $.extend(this.options.entity_options, {knowledgebase: this.options.knowledgebase, databases: databases.join("|"), entities: JSON.stringify(this.options.entities), entity_options: JSON.stringify(this.options.entity_options), _format: 'json'}), async: false}));
   },
 
   _nodes: function(){
@@ -164,66 +191,27 @@ $.widget("rbbt.cytoscape_tool", {
     return all_edges;
   },
 
-  _map_continuous: function(aesthetic, map){
-    var vis = this._vis();
-    var nodes = vis.nodes();
-    var node_ids = $.map(nodes, function(node){return(node.data.id)})
-
-    var max = 0
-    for (entity in map){
-      if ($.inArray(entity, node_ids) > -1){
-       var value = parseFloat(map[entity]);
-       if (value > max) max = value
-      }
-    }
-
-    var updated_nodes = []
-    for (i in nodes){
-      var node = nodes[i];
-      if (undefined !== map[node.data.id]){
-        value = parseFloat(map[node.data.id]) / max;
-        if (typeof value == 'number' && ! isNaN(value)){
-          node.data[aesthetic] = value
-          updated_nodes.push(node)
-        }
-      }
-    }
-    vis.updateData(updated_nodes);
-  },
-
-  _process_maps: function(nodes){
-    var aesthetics = this.options.aesthetics;
-    for (aesthetic in aesthetics){
-      this._map_continuous(aesthetic, aesthetics[aesthetic])
-    }
-  },
-
-  _network_old: function(){
-    var network = {};
-    var edges = this._edges();
-    var nodes = this._nodes();
-
-    network['data'] = {
-      nodes: nodes, edges: edges
-    };
-
-    network['dataSchema'] = {nodes: this._get_node_schema(), edges: this._get_edge_schema()}
-    return network;
-  },
-
   _network: function(){
     if (undefined !== this.options.network){ return this.options.network}
+    this.options.init = false
     var network = this._get_network(this.options.databases)
     this.options.network = network
     return network;
   },
 
-
   //  HIGH LEVEL
-  
+ 
+  draw: function(){
+   var config = {network: this._network(), visualStyle: this.options.visualStyle}
+   if (undefined !== this.options.points){
+    config.layout = {name:"Preset", options:{fitToScreen: true, points: this.options.points}}
+   }
+   this._vis().draw(config)
+   this._update_events()
+  },
+ 
   set_positions: function(points){
    this.options.points = points
-   this.options.init = false
   },
   
   vis: function(){ return this._vis()},
@@ -234,14 +222,6 @@ $.widget("rbbt.cytoscape_tool", {
 
   get_options: function(){
    return(this.options);
-  },
-
-  draw: function(){
-   var config = {network: this._network(), visualStyle: this.options.visualStyle}
-   if (undefined !== this.options.points){
-    config.layout = {name:"Preset", options:{fitToScreen: false, points: this.options.points}}
-   }
-   this._vis().draw(config)
   },
 
   select_entities: function(entities){
@@ -279,8 +259,6 @@ $.widget("rbbt.cytoscape_tool", {
        var entity = current_list[i];
        if ($.inArray(entity, entities) == -1){
         new_list.push(entity)
-       }else{
-        console.log("Removing: " + entity)
        }
       }
       this.options.entities[type] = new_list
@@ -297,9 +275,132 @@ $.widget("rbbt.cytoscape_tool", {
     this.options.network = undefined
     this.options.databases = databases;
   },
-  
+
+
+  //{{{ ASCETICS
+  _elem_feature: function(elem, feature){
+   if(undefined === feature) return elem.data.id
+   if(typeof feature == 'string' ){
+     if (undefined === elem.data[feature] && undefined !== elem.data.info){
+      return JSON.parse(elem.data.info)[feature];
+     }else{       
+      return elem.data[feature];
+     }            
+   }
+   if(typeof feature == 'function' ) return feature(elem)
+   return undefined
+  },
+
+  _map: function(elem_type, aesthetic, map, feature){
+    var vis = this._vis();
+    if (elem_type == 'nodes'){
+     var elems = vis.nodes();
+    }else{
+     var elems = vis.edges();
+    }
+
+    var updated_elems = []
+    for (i in elems){
+      var elem = elems[i];
+      var code = this._elem_feature(elem, feature)
+      if (undefined !== map[code]){
+        value = map[code];
+        elem.data[aesthetic] = value
+        updated_elems.push(elem)
+      }
+    }
+    vis.updateData(updated_elems);
+  },
+
+
+  _map_continuous: function(elem_type, aesthetic, map, feature){
+    var vis = this._vis();
+    if (elem_type == 'nodes'){
+     var elems = vis.nodes();
+    }else{
+     var elems = vis.edges();
+    }
+    var tool = this
+
+    console.log(feature)
+
+    if (undefined === map || null === map){
+      map = {};
+      $.each(elems, function(){
+        var elem = this
+        console.log(elem.data.info)
+        var id = elem.data.id
+        var val = tool._elem_feature(elem, feature)
+        map[id] = val
+      })
+      feature = "id"
+    }
+
+    var elem_codes = $.map(elems, function(elem){return(tool._elem_feature(elem, feature))})
+
+    console.log(elem_codes)
+    console.log(map)
+
+    if (elem_codes.length == 0){ return }
+    var max = 0
+    for (entity in map){
+      if ($.inArray(entity, elem_codes) > -1){
+       var value = parseFloat(map[entity]);
+       if (value > max) max = value
+      }
+    }
+
+    var updated_elems = []
+    for (i in elems){
+      var elem = elems[i];
+      var code = this._elem_feature(elem, feature)
+      if (undefined !== map[code]){
+        value = parseFloat(map[code]) / max;
+        if (typeof value == 'number' && ! isNaN(value)){
+          elem.data[aesthetic] = value
+          updated_elems.push(elem)
+        }
+      }
+    }
+    vis.updateData(updated_elems);
+  },
+
+
+  _add_aesthetic: function(elem, aesthetic, type, feature, map){
+   if (undefined === this.options.aesthetics[elem][aesthetic]) this.options.aesthetics[elem][aesthetic] = []
+   this.options.aesthetics[elem][aesthetic].push({type:type, feature:feature, map:map})
+  },
+
+  _process_aesthetics: function(){
+   for (elem in this.options.aesthetics){
+    for (aesthetic in this.options.aesthetics[elem]){
+     for (i in this.options.aesthetics[elem][aesthetic]){
+      var info = this.options.aesthetics[elem][aesthetic][i];
+      if(info.type === 'continuous'){
+       this._map_continuous(elem, aesthetic, info.map, info.feature)
+      }else{
+       this._map(elem, aesthetic, info.map, info.feature)
+      }
+     }
+    }
+   }
+  },
+
+  aesthetic: function(elem, aesthetic, map, feature){
+   var type = undefined;
+   if (undefined !== this.options.visualStyle[elem][aesthetic].continuousMapper) type = 'continuous'
+   if (undefined !== this.options.visualStyle[elem][aesthetic].discreteMapper) type = 'discrete'
+   if (undefined !== this.options.visualStyle[elem][aesthetic].passthroughMapper) type = 'passthrough'
+
+   this._add_aesthetic(elem, aesthetic, type, feature, map)
+  },
+
+
+  //{{{ OLD
+
+
   add_map: function(aesthetic, map){
-    this._map_continuous(aesthetic, map);
+    this._map_continuous('nodes', aesthetic, map);
   },
 })
 

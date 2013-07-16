@@ -13,8 +13,16 @@
       %option(attr-pdb="=#{pdb}")= "#{pdb}"
     - uniprot = protein.gene.uniprot
 
+    - ddd "------------------------------------"
+    - ddd "------------------------------------"
+    - ddd "------------------------------------"
+    - ddd "------------------------------------"
+    - ddd "------------------------------------"
+    - ddd uniprot
+
     - if uniprot
       - Structure.job(:i3d_protein_pdbs, "Structure", :uniprot => uniprot).run.each do |filename|
+        - ddd filename
         - type = filename =~ /EXP/ ? :pdb : :model
         - url = "http://interactome3d.irbbarcelona.org/pdb.php?dataset=human&type1=proteins&type2=#{ type }&pdb=#{ filename }"
         -# url =  "http://darthcaedus:28873/" << ["Structure", "get_protein_pdb"] * "/"  << "?" << Misc.hash2GET_params(:_format => :raw, :filename => filename)

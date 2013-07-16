@@ -3,6 +3,9 @@ require 'rbbt/util/misc'
 require 'rbbt/workflow'
 require 'rbbt/statistics/hypergeometric'
 require 'rbbt/statistics/random_walk'
+
+Workflow.require_workflow 'Genomics'
+
 require 'rbbt/entity'
 require 'rbbt/entity/gene'
 require 'rbbt/sources/organism'
@@ -13,8 +16,9 @@ require 'rbbt/sources/NCI'
 require 'rbbt/sources/InterPro'
 
 Workflow.require_workflow 'Translation'
+Workflow.require_workflow 'TSVWorkflow'
 
-module Enrichment
+module EnrichmentNew
   extend Workflow
   extend Resource
 
@@ -36,164 +40,45 @@ module Enrichment
     RENAMES[gene] = "Cadherin"
   end
 
-  input :list, :array, "KEGG Gene ID"
-  input :cutoff, :float, "Cufoff value", 0.05
-  input :fdr, :boolean, "Perform Benjamini-Hochberg FDR correction", true
-  input :background, :array, "Enrichment background", nil
-  input :fix_clusters, :boolean, "Fixed dependence in gene clusters", true
-  def self.kegg_enrichment(list, cutoff, fdr, background, fix_clusters)
-    #masked = KEGG.pathways.tsv(:fields => [], :persist => true, :select => proc{|l| l =~ /cancer|melanoma|carcinoma|disease|infection|opathy|hepatatis|glioma|Shigellosis/i}).keys
-    patterns = %w(cancer melanoma carcinoma leukemia leukaemia disease infection opathy hepatitis sclerosis hepatatis glioma Shigellosis)
-    masked = nil
-    TmpFile.with_file(patterns * "\n") do |pattern_file|
-      masked = CMD.cmd("cut -f 1,2 | grep -i -f #{pattern_file}|cut -f 1", :in => KEGG.pathways.open).read.split("\n")
+  helper :database_info do |database, organism|
+
+    case database.to_s
+    when 'kegg'
+      database_tsv = KEGG.gene_pathway.tsv :key_field => 'KEGG Gene ID', :fields => ["KEGG Pathway ID"], :type => :double, :persist => true, :unnamed => false, :merge => true
+      all_db_genes = Gene.setup(database_tsv.keys, "KEGG Gene ID", organism).uniq
+    when 'go'
+      database_tsv = Organism.gene_go(organism).tsv :key_field => "Ensembl Gene ID", :fields => ["GO ID"], :type => :double, :persist => true, :unnamed => false, :merge => true
+      all_db_genes = Gene.setup(database_tsv.keys, "Ensembl Gene ID", organism).uniq
+    when 'go_bp'
+      database_tsv = Organism.gene_go_bp(organism).tsv :key_field => "Ensembl Gene ID", :fields => ["GO ID"], :type => :double, :persist => true, :unnamed => false, :merge => true
+      all_db_genes = Gene.setup(database_tsv.keys, "Ensembl Gene ID", organism).uniq
+    when 'go_mf'
+      database_tsv = Organism.gene_go_mf(organism).tsv :key_field => "Ensembl Gene ID", :fields => ["GO ID"], :type => :double, :persist => true, :unnamed => false, :merge => true
+      all_db_genes = Gene.setup(database_tsv.keys, "Ensembl Gene ID", organism).uniq
+    when 'go_cc'
+      database_tsv = Organism.gene_go_cc(organism).tsv :key_field => "Ensembl Gene ID", :fields => ["GO ID"], :type => :double, :persist => true, :unnamed => false, :merge => true
+      all_db_genes = Gene.setup(database_tsv.keys, "Ensembl Gene ID", organism).uniq
+    when 'interpro'
+      database_tsv = InterPro.protein_domains.tsv :key_field => "UniProt/SwissProt Accession", :fields => ["InterPro ID"], :type => :double, :persist => true, :unnamed => false, :merge => true
+      all_db_genes = Gene.setup(database_tsv.keys, "UniProt/SwissProt Accession", organism).uniq
+    when 'pfam'
+      database_tsv = Organism.gene_pfam(organism).tsv :key_field => "Ensembl Gene ID", :fields => ["Pfam Domain"], :type => :double, :persist => true, :unnamed => false, :merge => true
+      all_db_genes = Gene.setup(database_tsv.keys, "Ensembl Gene ID", organism).uniq
+    when 'reactome'
+      database_tsv = Reactome.protein_pathways.tsv :key_field => "UniProt/SwissProt Accession", :fields => ["Reactome Pathway ID"], :persist => true, :merge => true, :type => :double, :unnamed => false
+      all_db_genes = Gene.setup(database_tsv.keys, "UniProt/SwissProt Accession", organism).uniq
+    when 'nature'
+      database_tsv = NCI.nature_pathways.tsv :key_field => "UniProt/SwissProt Accession", :fields => ["NCI Nature Pathway ID"], :persist => true, :merge => true, :type => :double, :unnamed => false
+      all_db_genes = Gene.setup(database_tsv.keys, "UniProt/SwissProt Accession", organism).uniq
+    when 'biocarta'
+      database_tsv = NCI.biocarta_pathways.tsv :key_field => "Entrez Gene ID", :fields => ["NCI BioCarta Pathway ID"], :persist => true, :merge => true, :type => :double, :unnamed => false
+      all_db_genes = Gene.setup(database_tsv.keys, "Entrez Gene ID", organism).uniq
+    else
+      raise "Database #{ database } not recognized"
     end
-    tsv = KEGG.gene_pathway.tsv(:persist => false, :fix => proc{|l| gene, codes = l.split("\t"); codes = codes.split("|") -  masked; l = [gene, codes * "|"] * "\t"; l  })
-    ##tsv = KEGG.gene_pathway.tsv(:persist => false)
-    list = list.collect{|l| l.select{|v| tsv.include? v}.first }.compact if Array === list.first
-    tsv.enrichment(list, "KEGG Pathway ID", :persist => (background.nil? or background.empty?), :cutoff => cutoff, :fdr => fdr, :background => background, :rename => (fix_clusters ? RENAMES : nil))
+
+    [database_tsv, all_db_genes, database_tsv.key_field, database_tsv.fields.first]
   end
-  task :kegg_enrichment=> :tsv
-  export_synchronous :kegg_enrichment
-
-  input :organism, :string, "Organism code", "Hsa"
-  input :list, :array, "Ensembl Gene ID"
-  input :cutoff, :float, "Cufoff value", 0.05
-  input :fdr, :boolean, "Perform Benjamini-Hochberg FDR correction", true
-  input :background, :array, "Enrichment background", nil
-  input :fix_clusters, :boolean, "Fixed dependence in gene clusters", true
-  def self.biotype_enrichment(organism, list, cutoff, fdr, background, fix_clusters)
-    tsv = Organism.gene_biotype(organism).tsv(:persist => true)
-    list = list.collect{|l| l.select{|v| tsv.include? v}.first }.compact if Array === list.first
-    res = tsv.enrichment(list, "Biotype", :persist => (background.nil? or background.empty?), :cutoff => cutoff, :fdr => fdr, :background => background, :rename => (fix_clusters ? RENAMES : nil))
-    res.namespace = organism
-    res
-  end
-  task :biotype_enrichment=> :tsv
-  export_synchronous :biotype_enrichment
-
-
-  input :organism, :string, "Organism code", "Hsa"
-  input :list, :array, "Ensembl Gene ID"
-  input :cutoff, :float, "Cufoff value", 0.05
-  input :fdr, :boolean, "Perform Benjamini-Hochberg FDR correction", true
-  input :background, :array, "Enrichment background", nil
-  input :fix_clusters, :boolean, "Fixed dependence in gene clusters", true
-  def self.go_bp_enrichment(organism, list, cutoff, fdr, background, fix_clusters)
-    tsv = Organism.gene_go_bp(organism).tsv(:persist => true)
-    list = list.collect{|l| l.select{|v| tsv.include? v}.first }.compact if Array === list.first
-    res = tsv.enrichment(list, "GO ID", :persist => (background.nil? or background.empty?), :cutoff => cutoff, :fdr => fdr, :background => background, :rename => (fix_clusters ? RENAMES : nil))
-    res.namespace = organism
-    res
-  end
-  task :go_bp_enrichment=> :tsv
-  export_synchronous :go_bp_enrichment
-
-  input :organism, :string, "Organism code", "Hsa"
-  input :list, :array, "Ensembl Gene ID"
-  input :cutoff, :float, "Cufoff value", 0.05
-  input :fdr, :boolean, "Perform Benjamini-Hochberg FDR correction", true
-  input :background, :array, "Enrichment background", nil
-  input :fix_clusters, :boolean, "Fixed dependence in gene clusters", true
-  def self.go_cc_enrichment(organism, list, cutoff, fdr, background, fix_clusters)
-    tsv = Organism.gene_go_cc(organism).tsv(:persist => true)
-    list = list.collect{|l| l.select{|v| tsv.include? v}.first }.compact if Array === list.first
-    res = tsv.enrichment(list, "GO ID", :persist => (background.nil? or background.empty?), :cutoff => cutoff, :fdr => fdr, :background => background)
-    res.namespace = organism
-    res
-  end
-  task :go_cc_enrichment=> :tsv
-  export_synchronous :go_cc_enrichment
-
-
-  input :organism, :string, "Organism code", "Hsa"
-  input :list, :array, "Ensembl Gene ID"
-  input :cutoff, :float, "Cufoff value", 0.05
-  input :fdr, :boolean, "Perform Benjamini-Hochberg FDR correction", true
-  input :background, :array, "Enrichment background", nil
-  input :fix_clusters, :boolean, "Fixed dependence in gene clusters", true
-  def self.go_mf_enrichment(organism, list, cutoff, fdr, background, fix_clusters)
-    tsv = Organism.gene_go_mf(organism).tsv(:persist => true)
-    list = list.collect{|l| l.select{|v| tsv.include? v}.first }.compact if Array === list.first
-    res = tsv.enrichment(list, "GO ID", :persist => (background.nil? or background.empty?), :cutoff => cutoff, :fdr => fdr, :background => background)
-    res.namespace = organism
-    res
-  end
-  task :go_mf_enrichment=> :tsv
-  export_synchronous :go_mf_enrichment
-
-
-  input :organism, :string, "Organism code", "Hsa"
-  input :list, :array, "Ensembl Gene ID"
-  input :cutoff, :float, "Cufoff value", 0.05
-  input :fdr, :boolean, "Perform Benjamini-Hochberg FDR correction", true
-  input :background, :array, "Enrichment background", nil
-  input :fix_clusters, :boolean, "Fixed dependence in gene clusters", true
-  def self.pfam_enrichment(organism, list, cutoff, fdr, background, fix_clusters)
-    tsv = Organism.gene_pfam(organism).tsv(:persist => true)
-    list = list.collect{|l| l.select{|v| tsv.include? v}.first }.compact if Array === list.first
-    res = tsv.enrichment(list, "Pfam Domain", :persist => (background.nil? or background.empty?), :cutoff => cutoff, :fdr => fdr, :background => background, :rename => (fix_clusters ? RENAMES : nil))
-    res.namespace = organism
-    res
-  end
-  task :pfam_enrichment=> :tsv
-  export_synchronous :pfam_enrichment
-
-  input :organism, :string, "Organism code", "Hsa"
-  input :list, :array, "Ensembl Gene ID"
-  input :cutoff, :float, "Cufoff value", 0.05
-  input :fdr, :boolean, "Perform Benjamini-Hochberg FDR correction", true
-  input :background, :array, "Enrichment background", nil
-  input :fix_clusters, :boolean, "Fixed dependence in gene clusters", true
-  def self.interpro_enrichment(organism, list, cutoff, fdr, background, fix_clusters)
-    tsv = InterPro.protein_domains.tsv(:persist => true, :fields => ["InterPro ID"], :type => :flat)
-    list = list.collect{|l| l.select{|v| tsv.include? v}.first }.compact if Array === list.first
-    res = tsv.enrichment(list, "InterPro ID", :persist => (background.nil? or background.empty?), :cutoff => cutoff, :fdr => fdr, :background => background, :rename => (fix_clusters ? RENAMES : nil))
-    res.namespace = organism
-    res
-  end
-  task :interpro_enrichment=> :tsv
-  export_synchronous :interpro_enrichment
-
-
-  input :list, :array, "Ensembl Gene ID"
-  input :cutoff, :float, "Cufoff value", 0.05
-  input :fdr, :boolean, "Perform Benjamini-Hochberg FDR correction", true
-  input :background, :array, "Enrichment background", nil
-  input :fix_clusters, :boolean, "Fixed dependence in gene clusters", true
-  def self.reactome_enrichment(list, cutoff, fdr, background, fix_clusters)
-    tsv = Reactome.protein_pathways.tsv(:key_field => "UniProt/SwissProt Accession", :fields => ["Reactome Pathway ID"], :persist => true, :merge => true, :type => :flat)
-    list = list.collect{|l| l.select{|v| tsv.include? v}.first }.compact if Array === list.first
-    res = tsv.enrichment list, "Reactome Pathway ID", :cutoff => 0.1, :fdr => true, :background => background, :persist => (background.nil? or background.empty?), :cutoff => cutoff, :fdr => fdr
-  end
-  task :reactome_enrichment=> :tsv
-  export_synchronous :reactome_enrichment
-
-  input :list, :array, "Ensembl Gene ID"
-  input :cutoff, :float, "Cufoff value", 0.05
-  input :fdr, :boolean, "Perform Benjamini-Hochberg FDR correction", true
-  input :background, :array, "Enrichment background", nil
-  input :fix_clusters, :boolean, "Fixed dependence in gene clusters", true
-  def self.biocarta_enrichment(list, cutoff, fdr, background, fix_clusters)
-    tsv = NCI.biocarta_pathways.tsv :key_field => "Entrez Gene ID", :fields => ["NCI BioCarta Pathway ID"], :persist => true, :merge => true, :type => :flat
-    list = list.collect{|l| l.select{|v| tsv.include? v}.first }.compact if Array === list.first
-    tsv.enrichment list, "NCI BioCarta Pathway ID", :cutoff => 0.1, :fdr => true, :background => background, :persist => (background.nil? or background.empty?), :cutoff => cutoff, :fdr => fdr
-  end
-  task :biocarta_enrichment=> :tsv
-  export_synchronous :biocarta_enrichment
-  
-  input :list, :array, "Ensembl Gene ID"
-  input :cutoff, :float, "Cufoff value", 0.05
-  input :fdr, :boolean, "Perform Benjamini-Hochberg FDR correction", true
-  input :background, :array, "Enrichment background", nil
-  input :fix_clusters, :boolean, "Fixed dependence in gene clusters", true
-  def self.nature_enrichment(list, cutoff, fdr, background, fix_clusters)
-    tsv = NCI.nature_pathways.tsv :key_field => "UniProt/SwissProt Accession", :fields => ["NCI Nature Pathway ID"], :persist => true, :merge => true, :type => :flat
-    list = list.collect{|l| l.select{|v| tsv.include? v}.first }.compact if Array === list.first
-    tsv.enrichment list, "NCI Nature Pathway ID", :cutoff => 0.1, :fdr => true, :background => background, :persist => (background.nil? or background.empty?), :cutoff => cutoff, :fdr => fdr
-  end
-  task :nature_enrichment=> :tsv
-  export_synchronous :nature_enrichment
 
   input :database, :string, "Database code: Kegg, Nature, Reactome, BioCarta, GO_BP, GO_CC, GO_MF"
   input :list, :array, "Gene list in any supported format; they will be translated acordingly"
@@ -202,117 +87,53 @@ module Enrichment
   input :fdr, :boolean, "Perform Benjamini-Hochberg FDR correction", true
   input :background, :array, "Enrichment background", nil
   input :fix_clusters, :boolean, "Fixed dependence in gene clusters", true
-  def self.enrichment(database, list, organism, cutoff = 0.05, fdr = true, background = nil, fix_clusters = true)
+  task :enrichment => :tsv do |database, list, organism, cutoff, fdr, background, fix_clusters|
     ensembl    = Translation.job(:translate, nil, :format => "Ensembl Gene ID", :genes => list, :organism => organism).run.compact.uniq
     background = Translation.job(:translate, nil, :format => "Ensembl Gene ID", :genes => background, :organism => organism).run.compact.uniq if background and background.any?
     Gene.setup(ensembl, "Ensembl Gene ID", "Hsa")
     Gene.setup(background, "Ensembl Gene ID", "Hsa") if background
-    case database.to_s.downcase
-    when "kegg"
-      background = background.to_kegg.compact.uniq if background and not background.empty?
-      res = Enrichment.kegg_enrichment(ensembl.to_kegg.compact, cutoff, fdr, background, fix_clusters)
-      TSV.setup(res, :key_field => "KEGG Gene ID", :fields => ["p-value", "KEGG Pathway ID"]) unless TSV === res
-      res.namespace = organism
-      res
 
-    when "go", "go bp", "go_bp"
-      res = Enrichment.go_bp_enrichment(organism, ensembl, cutoff, fdr, background, fix_clusters)
-      TSV.setup(res, :key_field => "Ensembl Gene ID", :fields => ["p-value", "GO Term ID"]) unless TSV === res
-      res.namespace = organism
-      res
-      
-    when "biotype"
-      res = Enrichment.biotype_enrichment(organism, ensembl, cutoff, fdr, background, fix_clusters)
-      TSV.setup(res, :key_field => "Ensembl Gene ID", :fields => ["p-value", "Biotype"]) unless TSV === res
-      res.namespace = organism
-      res
+    database_tsv, all_db_genes, database_key_field, database_field = database_info database, organism
 
-    when "go mf", "go_mf"
-      res = Enrichment.go_mf_enrichment(organism, ensembl, cutoff, fdr, background, fix_clusters)
-      TSV.setup(res, :key_field => "Ensembl Gene ID", :fields => ["p-value", "GO Term ID"]) unless TSV === res
-      res.namespace = organism
-      res
-
-    when "go cc", "go_cc"
-      res = Enrichment.go_cc_enrichment(organism, ensembl, cutoff, fdr, background, fix_clusters)
-      TSV.setup(res, :key_field => "Ensembl Gene ID", :fields => ["p-value", "GO Term ID"]) unless TSV === res
-      res.namespace = organism
-      res
- 
-    when "reactome"
-      genes = Organism.identifiers(organism).tsv(:key_field => "Ensembl Gene ID", :fields => ["UniProt/SwissProt Accession"], :type => :flat, :persist => true).values_at(*ensembl).compact.flatten.uniq
-      background = Organism.identifiers(organism).tsv(:key_field => "Ensembl Gene ID", :fields => ["UniProt/SwissProt Accession"], :type => :flat, :persist => true).values_at(*background).compact.flatten.uniq if background
-      res = Enrichment.reactome_enrichment(genes, cutoff, fdr, background, fix_clusters)
-      TSV.setup(res, :key_field => "UniProt/SwissProt Accession", :fields => ["p-value", "Reactome Pathway ID"]) unless TSV === res
-      res.namespace = organism
-      res
-    when "nature"
-      genes = Organism.identifiers(organism).tsv(:key_field => "Ensembl Gene ID", :fields => ["UniProt/SwissProt Accession"], :type => :flat, :persist => true).values_at(*ensembl).compact.flatten.uniq
-      background = Organism.identifiers(organism).tsv(:key_field => "Ensembl Gene ID", :fields => ["UniProt/SwissProt Accession"], :type => :flat, :persist => true).values_at(*background).compact.flatten.uniq if background
-      res = Enrichment.nature_enrichment(genes, cutoff, fdr, background, fix_clusters)
-      TSV.setup(res, :key_field => "UniProt/SwissProt Accession", :fields => ["p-value", "NCI Nature Pathway ID"]) unless TSV === res
-      res.namespace = organism
-      res
-    when "biocarta"
-      background = background.entrez.compact if background and not background.empty?
-      res = Enrichment.biocarta_enrichment(ensembl.entrez.compact, cutoff, fdr, background, fix_clusters)
-      TSV.setup(res, :key_field => "Entrez Gene ID", :fields => ["p-value", "NCI Biocarta Pathway ID"]) unless TSV === res
-      res.namespace = organism
-      res
-    when "pfam"
-      res = Enrichment.pfam_enrichment(organism, ensembl, cutoff, fdr, background, fix_clusters)
-      TSV.setup(res, :key_field => "Ensembl Gene ID", :fields => ["p-value", "Pfam Domain ID"]) unless TSV === res
-      res.namespace = organism
-      res
-
-    when "interpro"
-      genes = Organism.identifiers(organism).tsv(:key_field => "Ensembl Gene ID", :fields => ["UniProt/SwissProt Accession"], :type => :flat, :persist => true).values_at(*ensembl).compact.uniq
-      background = Organism.identifiers(organism).tsv(:key_field => "Ensembl Gene ID", :fields => ["UniProt/SwissProt Accession"], :type => :flat, :persist => true).values_at(*background).compact.flatten.uniq if background
-      res = Enrichment.interpro_enrichment(organism, genes, cutoff, fdr, background, fix_clusters)
-      TSV.setup(res, :key_field => "UniProt/SwissProt Accession", :fields => ["p-value", "Pfam Domain ID"]) unless TSV === res
-      res.namespace = organism
-      res
- 
-    else
-      raise "Unknown database code: #{ database }"
+    if database_key_field != "Ensembl Gene ID"
+      database_tsv = TSVWorkflow.job(:change_id, "Enrichment", :tsv => database_tsv, :format => "Ensembl Gene ID", :organism => organism).exec
+      all_db_genes = all_db_genes.to("Ensembl Gene ID").compact.uniq
     end
+
+
+    database_tsv.enrichment(ensembl, database_field, :persist => (background.nil? or background.empty?), :cutoff => cutoff, :fdr => fdr, :background => background, :rename => (fix_clusters ? RENAMES : nil))
   end
-  task :enrichment => :tsv
   export_synchronous :enrichment
 
   input :database, :string, "Database code: Kegg, Nature, Reactome, BioCarta, GO_BP, GO_CC, GO_MF"
-  input :list, :array, "Gene list in the appropriate format"
+  input :list, :array, "Gene list in any supported format; they will be translated acordingly"
   input :organism, :string, "Organism code (not used for kegg)", "Hsa"
   input :cutoff, :float, "Cufoff value", 0.05
   input :fdr, :boolean, "Perform Benjamini-Hochberg FDR correction", true
-  input :permutations, :integer, "Number of permutations to find pvalue", 1000
-  def self.rank_enrichment(database, list, organism, cutoff, fdr, permutations)
-    ensembl = Translation.job(:translate, nil, :format => "Ensembl Gene ID", :genes => list, :organism => organism).run.compact
+  input :background, :array, "Enrichment background", nil
+  input :fix_clusters, :boolean, "Fixed dependence in gene clusters", true
+  input :permutations, :integer, "Number of permutations used to compute p.value", 10000
+  task :rank_enrichment => :tsv do |database, list, organism, cutoff, fdr, background, fix_clusters, permutations|
+    ensembl    = Translation.job(:translate, nil, :format => "Ensembl Gene ID", :genes => list, :organism => organism).run.compact.uniq
+    background = Translation.job(:translate, nil, :format => "Ensembl Gene ID", :genes => background, :organism => organism).run.compact.uniq if background and background.any?
     Gene.setup(ensembl, "Ensembl Gene ID", "Hsa")
-    case database.to_s.downcase
-    when "kegg"
+    Gene.setup(background, "Ensembl Gene ID", "Hsa") if background
 
-      enrichment = KEGG.gene_pathway.tsv(:persist => true, :key_field => "KEGG Pathway ID", :fields => ["KEGG Gene ID"], :merge => true, :type => :flat).
-        rank_enrichment(ensembl.to_kegg.clean_annotations.compact, :fdr => fdr, :permutations => permutations, :cutoff => cutoff)
+    database_tsv, all_db_genes, database_key_field, database_field = database_info database, organism
 
-      res = enrichment.select("p-value"){|pvalue| pvalue and (Array === pvalue ? (pvalue.any? and pvalue.first < cutoff) : pvalue < cutoff)}
-
-      res.namespace = organism
-      res
-
-    when "go", "go bp", "go_bp"
-      res = Organism.gene_go_bp(organism).tsv(:persist => true, :key_field => "GO ID", :fields => ["Ensembl Gene ID"], :merge => true, :type => :flat).
-        rank_enrichment(ensembl.clean_annotations, :fdr => fdr, :permutations => permutations, :cutoff => cutoff).select("p-value"){|pvalue| pvalue and pvalue < cutoff}
-
-      res = enrichment.select("p-value"){|pvalue| pvalue and pvalue.any? and pvalue.first < cutoff}
-
-      res.namespace = organism
-      res
-     
-    else
-      raise "Unknown database code: #{ database }"
+    if database_key_field != "Ensembl Gene ID"
+      database_tsv = TSVWorkflow.job(:change_id, "Enrichment", :tsv => database_tsv, :format => "Ensembl Gene ID", :organism => organism).exec
+      all_db_genes = all_db_genes.to("Ensembl Gene ID").compact.uniq
     end
+
+    database_tsv = database_tsv.reorder database_field
+
+    missing = (all_db_genes - list).length
+
+    cutoff = cutoff.to_f
+    database_tsv.rank_enrichment(ensembl, :persist => (background.nil? or background.empty?), :cutoff => cutoff, :fdr => fdr, :background => background, :rename => (fix_clusters ? RENAMES : nil), :permutations => permutations, :persist_permutations => true, :missing => missing).select("p-value"){|p| p.to_f <= cutoff}
   end
-  task :rank_enrichment=> :tsv
-  export_synchronous :rank_enrichment
+  export_asynchronous :rank_enrichment
+
+
 end

@@ -2,10 +2,20 @@
 class Graph
   class KnowledgeBase
     attr_accessor :dir, :info, :associations
-    def initialize(dir)
+    def initialize(dir, &block)
       @dir = dir
       @info = {"All" => {}}
       @associations = {}
+
+      if File.exists? dir
+        Log.low("Knowledge base initialized at #{ dir }")
+        Dir.glob(File.join(dir, '*')).sort.each do |file|
+          name = File.basename file
+          @associations[name] ||= Persist.open_tokyocabinet(file, false, nil, TokyoCabinet::BDB)
+        end
+      else
+        self.instance_eval &block if block_given?
+      end
     end
 
     def fix_tsv(tsv, options)
@@ -77,8 +87,7 @@ class Graph
 
       options[:fields] = tsv_fields
 
-      filename = source.respond_to?(:filename) ? source.filename : source
-      @associations[name] = Persist.persist_tsv(source, "Associations [#{filename}]", options, :engine => TokyoCabinet::BDB, :serializer => :clean, :persist => true, :dir => @dir) do |assocs|
+      @associations[name] = Persist.persist_tsv(source, name, {}, :engine => TokyoCabinet::BDB, :serializer => :clean, :persist => true, :dir => @dir, :file => File.join(dir, name), :update => options[:update]) do |assocs|
         tsv = TSV === source ? 
           source :
           TSV.open(source, options.merge(:persist => false))
@@ -124,21 +133,21 @@ class Graph
             end
           end
         end
-
         assocs.close
+
         assocs
       end
-
     end
 
     def connections(name, entities)
-      repo = @associations[name]
+      repo = @associations[name] ||= Persist.open_tokyocabinet(File.join(dir, name), false, nil, TokyoCabinet::BDB)
       source_field, target_field = repo.key_field.split("~")
+
       source_type = Entity.formats[source_field].to_s
       target_type = Entity.formats[target_field].to_s
 
-      source_entities = entities[source_type]
-      target_entities = entities[target_type]
+      source_entities = entities[source_type] || entities[source_field]
+      target_entities = entities[target_type] || entities[target_field]
 
       return [] if source_entities.nil? or target_entities.nil?
 
@@ -149,7 +158,7 @@ class Graph
           next unless target_entities.include? target
           info = Hash[*repo.fields.zip(repo[key]).flatten]
 
-          {:source => source, :target => target, :info => info}
+          {:source => source, :target => target, :info => info, :database => name}
         end.compact
       end.flatten
     end

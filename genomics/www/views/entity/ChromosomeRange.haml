@@ -39,9 +39,10 @@
                              :name => 'Genes',
                              :label => true  )
 
+
     entity.genes.each do |gene|
       range = gene.chr_range
-      gene_track.add Bio::Graphics::MiniFeature.new(:start => range.begin, :end => range.end, :strand => gene.strand,  :html_params => {:title => gene.name || gene})
+      gene_track.add Bio::Graphics::MiniFeature.new(:start => range.begin, :end => range.end, :strand => gene.strand,  :params => {:title => gene.name || gene, :class => "title"})
     end
     svg = p.get_markup
 

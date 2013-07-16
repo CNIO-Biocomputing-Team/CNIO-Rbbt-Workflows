@@ -1,0 +1,155 @@
+- action_card = ActionCard.new
+ 
+- action_card.require :range do
+  = action_parameters do
+    - input :range, :string, "Chromosome Range (e.g. 12:100000000:150000000)"
+    - input :threshold, :float, "Percentage of genes lost/gained for CNV", 0.8
+
+= action_card_render action_card do
+  - threshold = threshold.to_f
+  - range = range.gsub(/[,\s]/,'').gsub(/[-]/,':')
+  - range = ChromosomeRange.setup(range, entity.organism)
+  - range_genes = range.genes.select_by(:biotype){|b| b == 'protein_coding'}
+  - range_size = range.end - range.start
+  - range_size = range_size.to_f
+  - p = nil
+  :ruby
+    require 'bio-svgenes'
+    p = Bio::Graphics::Page.new(:width => 800, :height => 200, :number_of_intervals => 10)
+
+
+    gene_track = p.add_track(:glyph => :generic,
+                             :name => 'Genes',
+                             :label => true  )
+
+    range.genes.each do |gene|
+      r = gene.chr_range
+      gene_track.add Bio::Graphics::MiniFeature.new(:start => r.begin, :end => r.end, :strand => gene.strand,  :params => {:title => gene.name || gene, :class => "title"})
+    end
+
+
+  %dl
+    %dt Chromosome Range
+    %dd= range.link
+
+    - if entity.has_genotypes?
+      - log :genotypes, "Processing genotypes"
+      - overview = entity.job(:genotype_overview).run
+      - overview.unnamed = true
+
+      %dt Relevant mutations in range
+      %dd
+        - mutations = entity.relevant_mutations.select_by(:over_chromosome_range?, range)
+        = mutations.list_link :length, "Mutation over #{range} in #{ entity }"
+      
+      %dt Samples with genes affected in range
+      %dd
+        - samples = overview.select(range_genes).slice("Samples with gene affected").values.compact.flatten.uniq.sort
+        - Sample.setup(samples, entity)
+        = samples.list_link :length, "Samples with genes affected over #{range} in #{ entity }"
+
+      %dt Samples with genes damaged in range
+      %dd
+        - samples = overview.select(range_genes).slice("Samples with gene damaged").values.compact.flatten.uniq.sort
+        - Sample.setup(samples, entity)
+        = samples.list_link :length, "Samples with genes damaged over #{range} in #{ entity }"
+
+      -#%dt Samples with relevant mutations in range
+      -#%dd
+      -#  - samples = entity.samples.select_by(:has_genotype?).select{|sample| sample.relevant_mutations.any?  and sample.relevant_mutations.select_by(:over_chromosome_range?, range).any?}
+      -#  = samples.list_link :length, "Samples with mutation over #{range} in #{ entity }"
+
+      -#%dt Samples with damaging mutations in range
+      -#%dd
+      -#  - samples = entity.samples.select_by(:has_genotype?).select{|sample| sample.damaging_mutations.any? and sample.damaging_mutations.select_by(:over_chromosome_range?, range).any?}
+      -#  = samples.list_link :length, "Samples with damaging mutation over #{range} in #{ entity }"
+
+      - if mutations.any?
+        :ruby
+          mutation_track = p.add_track(:glyph => :generic, :name => 'Mutations', :label => true)
+
+          mutations.each do |mutation|
+            chr, pos, mut = mutation.split(":")
+            pos = pos.to_i
+            mutation_track.add Bio::Graphics::MiniFeature.new(:start => pos, :end => pos+10, :strand => 1,  :params => {:title => mutation})
+          end
+
+    - if entity.has_cnv?
+      - log :cnv, "Processing CNVs"
+      - overview = entity.job(:cnv_overview).run(true).path.tsv :persist => true, :dir => settings.persistence_dir
+      - overview.unnamed = true
+
+      %dt Samples with CNV information
+      %dd
+        - samples = entity.samples.select_by(:has_cnv?)
+        = samples.list_link :length, "Samples with CNVs information in #{ entity }"
+
+      %dt Samples with CNV gains in range
+      %dd
+        - log :cnv, "Processing CNV gains"
+        - samples = Misc.counts(overview.select(:key => range_genes).slice("Samples with gene gained").values.compact.flatten).select{|s,c| c > range_genes.length.to_f * threshold}.collect{|s,c| s}
+        - samples = Sample.setup(samples, entity)
+        - if samples.any?
+          = samples.list_link :length, "Samples with CNV gains over #{range} in #{ entity }"
+          :ruby
+            samples.each do |sample|
+              log :cnv, "Processing CNV gain track for #{ sample }"
+
+              gain_track = p.add_track(:glyph => :generic, :name => "Gained in #{ sample }", :label => true )
+              sample.cnvs.each do |cnv|
+                chr, start, eend, var = cnv.split(":")
+                next if chr != range.chromosome
+                next if cnv.variation != "gain"
+                start = start.to_i
+                eend = eend.to_i
+                next if start > range.end or eend  < range.start
+                start = [start,range.start].max
+                eend = [eend,range.end].min
+                gain_track.add Bio::Graphics::MiniFeature.new(:start => start, :end => eend, :strand => 1, :fill_color => 'green',  :params => {:title => cnv, :attr_var => var})
+              end
+            end
+        - else
+          None
+
+      %dt Samples with CNV losses in range
+      %dd
+        - log :cnv, "Processing CNV losses"
+        - samples = Misc.counts(overview.select(:key => range_genes).slice("Samples with gene lost").values.compact.flatten).select{|s,c| c > range_genes.length.to_f * threshold}.collect{|s,c| s}
+        - samples = Sample.setup(samples, entity)
+        - if samples.any?
+          = samples.list_link :length, "Samples with CNV losses over #{range} in #{ entity }"
+          :ruby
+            samples.each do |sample|
+              log :cnv, "Processing CNV loss track for #{ sample }"
+
+              loss_track = p.add_track(:glyph => :generic, :name => "Lost in #{ sample }", :label => true )
+              sample.cnvs.each do |cnv|
+                chr, start, eend, var = cnv.split(":")
+                next if chr != range.chromosome
+                next if cnv.variation != "loss"
+                start = start.to_i
+                eend = eend.to_i
+                next if start > range.end or eend  < range.start
+                start = [start,range.start].max
+                eend = [eend,range.end].min
+                loss_track.add Bio::Graphics::MiniFeature.new(:start => start, :end => eend, :strand => 1, :fill_color => 'red', :params => {:title => cnv, :attr_var => var})
+              end
+            end
+        - else
+          None
+
+
+  -#
+    %dt Samples with methylation information
+    %dd
+      - samples = entity.samples.select_by(:has_methylation?)
+      = samples.list_link :length, "Samples with methylation information in #{ entity }"
+
+    %dt Samples with range methylated
+    %dd
+      - samples = entity.samples.select_by(:has_cnv?).select{|s| (s.lost_genes & range_genes).length > range_genes.length.to_f * 0.8}
+      = samples.list_link :length, "Samples with #{range} methylated in #{ entity }"
+
+  .svg
+    = p.get_markup
+
