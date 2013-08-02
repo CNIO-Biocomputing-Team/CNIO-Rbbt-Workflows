@@ -1,0 +1,17 @@
+- databases = %w(kegg nature reactome biocarta go_bp go_cc go_mf pfam biotype interpro)
+
+- action_card = ActionCard.new do
+  - input :database, :select, "Pathway database", :kegg, :select_options => databases
+  - input :background, :select, "Background list", nil, :select_options => {'none' => 'All genome'}, :html_options => {:class => 'favourite_lists', :type => 'Gene'}
+  - input :permutations, :select, "Permutations to perform", 1000, :select_options => [500, 1000, 5000, 10000]
+  - input :cutoff, :float, "Significance cutoff", 0.1
+  - input :fdr, :boolean, "Perform FDR", true
+
+- action_card.require :database, :cutoff, :fdr, :permutations
+= action_card_render action_card do
+  - job = Enrichment.job(:rank_enrichment, map_id, :database => database, :list => map.sort_by(map.fields.first, true), :organism => map.namespace, :cutoff => cutoff.to_f, :permutations => permutations.to_i, :fdr => fdr)
+  = table do
+    - job.run
+
+
+

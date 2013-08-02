@@ -1,4 +1,4 @@
-enrichment_new=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
+enrichment=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
  workflow.rb
  workflow.md
  lib=lib {
@@ -9,6 +9,11 @@ enrichment_new=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
  www=www {
   views=views{
    entity_list=entity_list{
+    Gene=Gene{
+     enrichment.haml
+    }
+   }
+   entity_map=entity_map{
     Gene=Gene{
      enrichment.haml
     }

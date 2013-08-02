@@ -2,13 +2,97 @@
 - studies = user_studies[user]
 
 = action_card_render ActionCard.new do
-  
-  - header "Percent", "NumericValue"
-  = table(:list_links => true, :table_id => "mutations_in_#{entity.name || entity}") do
-    - tsv = TSV.setup({}, :key_field => "Study", :fields => ["Genomic Mutation", "Percent"], :type => :double)
+  - entity = entity.ensembl
+
+  %h4 Genotype overview
+
+  - header "Number of samples", "NumericValue"
+  - header "Samples with gene mutated", "Link"
+  - header "Samples with gene affected", "Link"
+  - header "Samples with gene damaged", "Link"
+  - header "Mutation significance", "NumericValue"
+  = table(:list_links => false, :table_id => "genotype_overview_of_#{entity.name || entity}") do
+    - tsv = TSV.setup({}, :key_field => "Study", :fields => ["Number of samples", "Average mutation count", "Samples with gene mutated", "Samples with gene affected", "Samples with gene damaged", "Mutation significance"], :type => :double)
+    - procs = []
+    - RbbtSemaphore.with_semaphore(8, "/gene_overview_" << entity) do |semaphore|
+      - jobs = []
+      - studies.each do |study|
+        - mutation_count = Study.setup(study).all_mutations.length
+        - next if mutation_count > 100_000
+        - begin
+          - job = Study.setup(study).job(:genotype_overview, study)
+          - jobs << job
+          - jobs << job.fork(semaphore)
+        - rescue
+          - Log.debug("Error preprocessing #{ study }: #{$!.message}")
+          - ddd $!.backtrace
+      - jobs.each do |job| job.join end
+
+
     - studies.each do |study|
-      - mutations = study.all_mutations
-      - next if mutations.empty?
-      - gene_mutations = mutations.select_by(:genes){|genes| genes.include? entity }
-      - tsv[study] = [gene_mutations, [100.0 * gene_mutations.length.to_f / mutations.length]]
+      - log :genotype, "#{ study } genotype overview"
+      - mutation_count = study.all_mutations.length
+      - next if mutation_count > 100_000
+      - begin
+        - info = study.job(:genotype_overview, study).path.tsv(:grep => [entity])[entity]
+        - if info.nil?
+          - next
+        - else
+          - num_samples = study.samples.select_by(:has_genotype?).length
+          - next if num_samples == 0
+          - row = []
+          - row << [num_samples]
+          - row << [mutation_count / num_samples]
+          - row << Sample.setup(info[0], study).list_link("%.3g" % ((list_length = info[0].length).to_f * 100 / num_samples) + " % (#{list_length})", "Samples with #{entity.name} mutated in #{ study }")
+          - row << Sample.setup(info[1], study).list_link("%.3g" % ((list_length = info[1].length).to_f * 100 / num_samples) + " % (#{list_length})", "Samples with #{entity.name} affected in #{ study }")
+          - row << Sample.setup(info[2], study).list_link("%.3g" % ((list_length = info[2].length).to_f * 100 / num_samples) + " % (#{list_length})", "Samples with #{entity.name} damaged in #{ study }")
+          - row << (info[3] == ["> 0.1"] ? [nil] : info[3])
+          - tsv[study] = row
+      - rescue
+        - Log.debug($!.message)
+        - next
+
+    - tsv
+
+  %h4 CNV overview
+
+  - header "Number of samples", "NumericValue"
+  - header "Samples with gene lost", "Link"
+  - header "Samples with gene gained", "Link"
+  = table(:list_links => false, :table_id => "cnv_overview_of_#{entity.name || entity}") do
+    - tsv = TSV.setup({}, :key_field => "Study", :fields => ["Number of samples", "Samples with gene lost", "Samples with gene gained"], :type => :double)
+    - procs = []
+    - RbbtSemaphore.with_semaphore(8, "/gene_overview_" << entity) do |semaphore|
+      - jobs = []
+      - studies.each do |study|
+        - begin
+          - job = Study.setup(study).job(:cnv_overview, study)
+          - jobs << job
+          - jobs << job.fork(semaphore)
+        - rescue
+          - Log.debug("Error preprocessing #{ study }: #{$!.message}")
+          - ddd $!.backtrace
+      - jobs.each do |job| job.join end
+
+
+    - studies.each do |study|
+      - log :cnv, "#{ study } CNV overview"
+      - mutation_count = study.all_mutations.length
+      - next if mutation_count > 100_000
+      - begin
+        - info = study.job(:cnv_overview, study).path.tsv(:grep => [entity])[entity]
+        - if info.nil?
+          - next
+        - else
+          - num_samples = study.cnv_cohort.length
+          - next if num_samples == 0
+          - row = []
+          - row << [num_samples]
+          - row << Sample.setup(info[0], study).list_link("%.3g" % ((list_length = info[0].length).to_f * 100 / num_samples) + " % (#{list_length})", "Samples with #{entity.name} lost in #{ study }")
+          - row << Sample.setup(info[1], study).list_link("%.3g" % ((list_length = info[1].length).to_f * 100 / num_samples) + " % (#{list_length})", "Samples with #{entity.name} gained in #{ study }")
+          - tsv[study] = row
+      - rescue
+        - Log.debug($!.message)
+        - next
+
     - tsv

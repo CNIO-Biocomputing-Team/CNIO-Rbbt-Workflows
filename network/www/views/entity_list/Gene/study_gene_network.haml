@@ -1,0 +1,51 @@
+- authorize!
+- studies = user_studies[user]
+
+= action_card_render ActionCard.new do
+
+  - dir = @step.file('kb')
+
+  - kb = Graph::KnowledgeBase.new dir
+  - kb.info["All"] = {:organism => "Hsa/jan2013"}
+
+  - g = Graph.new([kb, $knowledge_base])
+  - g.entities["Gene"] = list
+  - g.entities["Study"] = []
+
+  - study_genes = TSV.setup({}, :key_field => "Study", :fields => ["Ensembl Gene ID", "Significance", "Highlight"], :type => :double)
+  - gene_counts = {}
+  - studies.each do |study|
+    - log :study, "Processing #{ study }"
+    - Study.setup(study)
+    - next unless study.has_genotypes?
+    - next if study.cohort.metagenotype.length > 100_000
+    - genotype_overview = study.job(:genotype_overview).run
+
+    - all_genes = genotype_overview.keys
+
+    - g.entities["Gene"] += list.subset(all_genes)
+
+    - gene_scores = {}
+    - gene_highlights = {}
+    - all_genes.each do |gene|
+      - gene_scores[gene] = - Math.log((p = genotype_overview[gene]["Mutation significance"].first) != "> 0.1" ? p.to_f : 1)
+      - gene_highlights[gene] = (p = genotype_overview[gene]["Mutation significance"].first) != "> 0.1" ? "YES" : "NO"
+
+    - g.entities["Study"] << study
+    - study_genes[study] = [all_genes, gene_scores.values_at(*all_genes), gene_highlights.values_at(*all_genes)]
+
+  - gene_counts = Misc.counts(g.entities["Gene"])
+  - g.entities["Gene"].uniq!
+
+  - kb.associations("mutated", study_genes, {})
+  - g.databases << "mutated"
+
+  -#{{{ Ascetics
+  - g.add_aesthetic :nodes, :shape, :entity_type, {"Study" => "HEXAGON"}
+  - g.add_aesthetic :nodes, :color, :entity_type, {"Study" => 'green'}
+  - g.add_aesthetic :nodes, :borderWidth, :id, gene_counts
+  - g.add_aesthetic :edges, :color, "Highlight", {"YES" => "red"}
+  - g.add_aesthetic :edges, :opacity, "Highlight", {"YES" => 1, "NO" => 0.1}
+  -# g.add_aesthetic :edges, :weight, "Significance"
+
+  = tool :cytoscape, :graph => g, :id => "ICGC mutation overview", :static => false, :knowledgebase => dir 

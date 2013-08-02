@@ -41,13 +41,11 @@ Genomics=/$PWD filter="*.config *.rb *.rake Rakefile *.rdoc *.R *.sh *.js *.haml
      known_mutations.haml
      study_overview.haml
     }
-    Protein=Protein{
-     overlay_mutations.haml
-    }
     Study=Study{
      gene_in_study.haml
      chromosome_range_in_study.haml
      gene_list_in_study.haml
+     gene_list_expression.haml
      sample_details.haml
      snp_in_study.haml
     }
@@ -65,12 +63,19 @@ Genomics=/$PWD filter="*.config *.rb *.rake Rakefile *.rdoc *.R *.sh *.js *.haml
      details.haml
      gene_list_in_study.haml
      study_overview.haml
+     expression_overview.haml
+     expression_in_study.haml
     }
     GenomicMutation=GenomicMutation{
      mutation_details.haml
     }
     Sample=Sample{
      differential_expression.haml
+    }
+   }
+   entity_map=entity_map{
+    Gene=Gene{
+     rank_enrichment.haml
     }
    }
   }

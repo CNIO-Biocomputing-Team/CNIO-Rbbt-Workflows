@@ -131,11 +131,16 @@ $.widget("rbbt.cytoscape_tool", {
   },
 
   //  DRAWING
+  //_get_edges: function(database){
+  //  //return $.ajax({method: 'POST', url: '/tool/cytoscape/get_edges', data: $.extend(this.options.entity_options, {database: database, entities: JSON.stringify(this.options.entities), _format: 'json'}), async: false}).responseJSON;
+  //  return JSON.parse(get_ajax({method: 'POST', url: '/tool/cytoscape/get_edges', data: $.extend(this.options.entity_options, {database: database, entities: JSON.stringify(this.options.entities), _format: 'json'}), async: false}));
+  //},
 
-  _get_nodes: function(type, entities){
-    //return $.ajax({method: 'POST', url: '/tool/cytoscape/get_nodes', data: $.extend(this.options.entity_options, {type: type, entities: entities.join("|"), _format: 'json'}), async: false}).responseJSON;
-    return JSON.parse(get_ajax({method: 'POST', url: '/tool/cytoscape/get_nodes', data: $.extend(this.options.entity_options, {type: type, entities: entities.join("|"), _format: 'json'}), async: false}));
-  },
+
+  //_get_nodes: function(type, entities){
+  //  //return $.ajax({method: 'POST', url: '/tool/cytoscape/get_nodes', data: $.extend(this.options.entity_options, {type: type, entities: entities.join("|"), _format: 'json'}), async: false}).responseJSON;
+  //  return JSON.parse(get_ajax({method: 'POST', url: '/tool/cytoscape/get_nodes', data: $.extend(this.options.entity_options, {type: type, entities: entities.join("|"), _format: 'json'}), async: false}));
+  //},
 
   _get_node_schema: function(){
     //return $.ajax({method: 'GET', url: '/tool/cytoscape/node_schema', async: false}).responseJSON;
@@ -147,13 +152,8 @@ $.widget("rbbt.cytoscape_tool", {
     return JSON.parse(get_ajax({method: 'GET', url: '/tool/cytoscape/edge_schema', async: false}));
   },
 
-  _get_edges: function(database){
-    //return $.ajax({method: 'POST', url: '/tool/cytoscape/get_edges', data: $.extend(this.options.entity_options, {database: database, entities: JSON.stringify(this.options.entities), _format: 'json'}), async: false}).responseJSON;
-    return JSON.parse(get_ajax({method: 'POST', url: '/tool/cytoscape/get_edges', data: $.extend(this.options.entity_options, {database: database, entities: JSON.stringify(this.options.entities), _format: 'json'}), async: false}));
-  },
-
   _get_network: function(databases){
-    return JSON.parse(get_ajax({method: 'POST', url: '/tool/cytoscape/get_network', data: $.extend(this.options.entity_options, {knowledgebase: this.options.knowledgebase, databases: databases.join("|"), entities: JSON.stringify(this.options.entities), entity_options: JSON.stringify(this.options.entity_options), _format: 'json'}), async: false}));
+    return JSON.parse(get_ajax({method: 'POST', url: '/tool/cytoscape/get_network', data: $.extend({}, this.options.entity_options, {knowledgebase: this.options.knowledgebase, databases: databases.join("|"), entities: JSON.stringify(this.options.entities), entity_options: JSON.stringify(this.options.entity_options), _format: 'json'}), async: false}));
   },
 
   _nodes: function(){
@@ -192,7 +192,10 @@ $.widget("rbbt.cytoscape_tool", {
   },
 
   _network: function(){
-    if (undefined !== this.options.network){ return this.options.network}
+      if (undefined !== this.options.network){ 
+          return this.options.network
+      }
+
     this.options.init = false
     var network = this._get_network(this.options.databases)
     this.options.network = network
@@ -322,13 +325,10 @@ $.widget("rbbt.cytoscape_tool", {
     }
     var tool = this
 
-    console.log(feature)
-
     if (undefined === map || null === map){
       map = {};
       $.each(elems, function(){
         var elem = this
-        console.log(elem.data.info)
         var id = elem.data.id
         var val = tool._elem_feature(elem, feature)
         map[id] = val
@@ -337,9 +337,6 @@ $.widget("rbbt.cytoscape_tool", {
     }
 
     var elem_codes = $.map(elems, function(elem){return(tool._elem_feature(elem, feature))})
-
-    console.log(elem_codes)
-    console.log(map)
 
     if (elem_codes.length == 0){ return }
     var max = 0

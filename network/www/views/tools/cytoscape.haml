@@ -14,7 +14,7 @@
         .database_edges
           %h5 Add edges between entities
           = action_parameters nil, {:klass => ''}, :action => '#' do
-            - input :database, :multiple, "Association database", nil, :choices => graph.knowledge_base.association_sources
+            - input :database, :multiple, "Association database", nil, :choices => graph.association_sources
 
         .add_gene_list
           %h5 Add entities from a list
@@ -39,7 +39,7 @@
       .inspector
 
 
-  - entity_options = graph.knowledge_base.info.values.inject({}){|acc,e| acc.merge(e)}
+  - entity_options = graph.entity_options
   :javascript
     deffer(function(){
       require_js('/js/cytoscape', function(){
@@ -117,36 +117,178 @@
           vis.select([rootNode]).select(neighborNodes);
         });
 
+
+        //{{{ PLACEMENT
+
         tool.cytoscape_tool('add_context_menu_item', "Pull first neighbors", "nodes", function (evt) {
           var vis = tool.cytoscape_tool('vis');
           var rootNode = evt.target;
           var all_nodes = vis.nodes();
           var fNeighbors = vis.firstNeighbors([rootNode]);
           var neighborNodes = fNeighbors.neighbors;
-          var root_x = rootNode.x
-          var root_y = rootNode.y
           var zoom = vis.zoom();
-          var dist = 50
+          var root_x = rootNode.x / zoom
+          var root_y = rootNode.y / zoom
+          var dist = 100
           var points = []
           var neighborNode_ids = $.map(neighborNodes, function(node){return(node.data.id)})
           $.each(all_nodes, function(){
             var node = this
             if ($.inArray(node.data.id, neighborNode_ids) >= 0){
-              var node_x = node.x
-              var node_y = node.y
+              var node_x = node.x / zoom
+              var node_y = node.y / zoom
               var dist_x = node_x - root_x
               var dist_y = node_y - root_y
               var length = Math.sqrt(Math.pow(dist_x,2) + Math.pow(dist_y, 2))
-              node_x = root_x + (dist_x * ((dist + Math.random() * dist) / length))
-              node_y = root_y + (dist_y * ((dist + Math.random() * dist) / length))
-              node.x = node_x
-              node.y = node_y
+              node_x = root_x + (dist_x / length * ((dist + Math.random() * dist)))
+              node_y = root_y + (dist_y / length * ((dist + Math.random() * dist)))
+              node.x = node_x * zoom
+              node.y = node_y * zoom
             }
             points.push({id:node.data.id, x: node.x / zoom, y: node.y / zoom})
           })
           tool.cytoscape_tool('set_positions', points)
           tool.cytoscape_tool('draw')
         });
+
+        tool.cytoscape_tool('add_context_menu_item', "Surround with first neighbors", "nodes", function (evt) {
+          var vis = tool.cytoscape_tool('vis');
+          var rootNode = evt.target;
+          var all_nodes = vis.nodes();
+          var fNeighbors = vis.firstNeighbors([rootNode]);
+          var neighborNodes = fNeighbors.neighbors;
+          var zoom = vis.zoom();
+          var root_x = rootNode.x / zoom
+          var root_y = rootNode.y / zoom
+          var dist = 20
+          var points = []
+          var neighborNode_ids = $.map(neighborNodes, function(node){return(node.data.id)})
+          var ang = 0
+          var num = 0
+          var circum = 0
+
+          $.each(all_nodes, function(){
+            var node = this
+            if ($.inArray(node.data.id, neighborNode_ids) >= 0){
+              num += 1;
+              if (undefined !== node.data.size){
+                circum += tool.cytoscape_tool('get_options').visualStyle.nodes.size.defaultValue + 5
+              }else{
+                circum += parseInt(node.data.size) + 5
+              }
+            }
+          })
+
+          dist += circum / (2 * Math.PI)
+
+          if (dist < 50){ dist = 50}
+
+          var ang_inc = 1.0 / num
+          $.each(all_nodes, function(){
+            var node = this
+            if ($.inArray(node.data.id, neighborNode_ids) >= 0){
+              ang = ang + ang_inc
+              var node_x = root_x + (dist * Math.sin(ang * 2 * Math.PI))
+              var node_y = root_y + (dist * Math.cos(ang * 2 * Math.PI))
+              node.x = node_x * zoom
+              node.y = node_y * zoom
+            }
+            points.push({id:node.data.id, x: node.x / zoom, y: node.y / zoom})
+          })
+          tool.cytoscape_tool('set_positions', points)
+          tool.cytoscape_tool('draw')
+        });
+
+
+
+        tool.cytoscape_tool('add_context_menu_item', "Horizontally place selected", "none", function (evt) {
+          var vis = tool.cytoscape_tool('vis');
+          var all_nodes = vis.nodes();
+          var selected = vis.selected('nodes')
+          var zoom = vis.zoom();
+          var root_x = evt.mouseX / zoom
+          var root_y = evt.mouseY / zoom
+          var dist = 20
+          var points = []
+          var selected_ids = $.map(selected, function(node){return(node.data.id)})
+          var ang = 0
+          var num = 0
+          var l = 0
+          $.each(all_nodes, function(){
+            var node = this
+            if ($.inArray(node.data.id, selected_ids) >= 0){
+              num += 1;
+              if (undefined !== node.data.size){
+                l += tool.cytoscape_tool('get_options').visualStyle.nodes.size.defaultValue * 2
+              }else{
+                l += parseInt(node.data.size)  * 2
+              }
+            }
+          })
+
+          var pos = root_x - l / 2
+          var pos_inc = l / num
+
+          $.each(all_nodes, function(){
+            var node = this
+            if ($.inArray(node.data.id, selected_ids) >= 0){
+              pos += pos_inc
+              var node_x = root_x + pos 
+              var node_y = root_y
+              node.x = node_x * zoom
+              node.y = node_y * zoom
+            }
+            points.push({id:node.data.id, x: node.x / zoom, y: node.y / zoom})
+          })
+          tool.cytoscape_tool('set_positions', points)
+          tool.cytoscape_tool('draw')
+        });
+
+
+ 
+        tool.cytoscape_tool('add_context_menu_item', "Vertically place selected", "none", function (evt) {
+          var vis = tool.cytoscape_tool('vis');
+          var all_nodes = vis.nodes();
+          var selected = vis.selected('nodes')
+          var zoom = vis.zoom();
+          var root_x = evt.mouseX / zoom
+          var root_y = evt.mouseY / zoom
+          var dist = 20
+          var points = []
+          var selected_ids = $.map(selected, function(node){return(node.data.id)})
+          var ang = 0
+          var num = 0
+          var l = 0
+          $.each(all_nodes, function(){
+            var node = this
+            if ($.inArray(node.data.id, selected_ids) >= 0){
+              num += 1;
+              if (undefined !== node.data.size){
+                l += tool.cytoscape_tool('get_options').visualStyle.nodes.size.defaultValue * 2
+              }else{
+                l += parseInt(node.data.size)  * 2
+              }
+            }
+          })
+
+          var pos = root_y - l / 2
+          var pos_inc = l / num
+
+          $.each(all_nodes, function(){
+            var node = this
+            if ($.inArray(node.data.id, selected_ids) >= 0){
+              pos += pos_inc
+              var node_x = root_x 
+              var node_y = root_y + pos
+              node.x = node_x * zoom
+              node.y = node_y * zoom
+            }
+            points.push({id:node.data.id, x: node.x / zoom, y: node.y / zoom})
+          })
+          tool.cytoscape_tool('set_positions', points)
+          tool.cytoscape_tool('draw')
+        });
+
 
         ///////////////////////////////////
         //{{{ ENTITY INIT
@@ -156,7 +298,7 @@
         //{{{ NETWORK INIT
 
         #{graph.entities.keys.collect do |type|
-          entity_options = graph.knowledge_base.info["All"].merge(graph.knowledge_base.info[type] || {})
+          entity_options = graph.entity_options(type)
           "tool.cytoscape_tool('add_entities', '#{type}', #{graph.entities[type].to_json});"
           end * "\n" unless static
         }

@@ -11,21 +11,25 @@
     - method = :dictionary
     - organism = "Hsa"
     - normalize = true
+    - list.default_type = :best if full_text
+    - log :text, "Gathering article text into corpus"
+    - list.text
     - list.each do |document|
-      - sentence = document.sentences
-      - mentions = document.gene_mentions(:full_text => full_text, :normalize => normalize, :method => method, :organism => organism)
+      - log :mentions, "Finding mentions for #{ document }"
+      - mentions = document.gene_mentions(:normalize => normalize, :method => method, :organism => organism)
       %dt
         = document.link
         \:
         = document.title
-      %dd= mentions.compact.uniq.collect{|m| entity = m.entity(:organism => organism); sentence = document.sentences_over(m).first || "NONE"; title = (entity.name || entity) + ": " << (sentence.respond_to?(:unmask) ? sentence.unmask : sentence) ; entity.link(m, :title => CGI.escapeHTML(title)) } * ", "
+      %dd
+        - mentions = mentions.compact.uniq
+        - links = mentions.zip(document.sentences_over(mentions)).collect do |m, sentences| 
+          - entity = m.entity(:organism => organism)
+          - sentence = sentences.first || "NONE"
+          - begin
+            - title = (entity.name || entity) + ": " << (sentence.respond_to?(:unmask) ? sentence.unmask : sentence) 
+          - rescue
+            - title = "NONE"
+          - entity.link(m, :title => CGI.escapeHTML(title)) 
 
-    -# list.each do |article|
-      - text = full_text ? article.full_text : article.abstract
-      - next if text.nil?
-      - job = TextMining.job(:gene_mention_recognition, list_id, :method => :dictionary, :text => text, :normalize => normalize, :organism => organism)
-      - mentions = job.exec
-      - if mentions and mentions.any?
-        %dt= article.title
-        %dd= mentions.uniq.collect{|m| entity = m.entity(:organism => organism); sentence = text.sentence_over(m); title = entity.name + ": " << sentence ; entity.link(m, :title => title) } * ", "
-
+        = links * ", "

@@ -92,13 +92,13 @@ post '/tool/cytoscape/get_network' do
 
   if knowledgebase.nil? or knowledgebase.empty?
     knowledgebase = $knowledge_base
+    g = Graph.new $knowledge_base, databases.split("|")
   else
     knowledgebase = Graph::KnowledgeBase.new knowledgebase
+    knowledgebase.info["All"] = JSON.parse(entity_options_json)
+    g = Graph.new [$knowledge_base, knowledgebase], databases.split("|")
   end
 
-  knowledgebase.info["All"] = JSON.parse(entity_options_json)
-
-  g = Graph.new knowledgebase, databases.split("|")
 
   g.entities = JSON.parse(entity_json)
 

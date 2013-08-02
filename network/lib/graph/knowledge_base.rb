@@ -139,8 +139,21 @@ class Graph
       end
     end
 
+    def all_repos
+      Dir.glob(dir + '/*').collect{|f| File.basename f }
+    end
+
+    def get_repo(name)
+      file = File.join(dir, name)
+      File.exists?(file) ?
+        Persist.open_tokyocabinet(file, false, nil, TokyoCabinet::BDB) :
+        nil
+    end
+
     def connections(name, entities)
-      repo = @associations[name] ||= Persist.open_tokyocabinet(File.join(dir, name), false, nil, TokyoCabinet::BDB)
+      #repo = @associations[name] ||= get_repo(name)
+      repo = get_repo(name)
+      return [] if repo.nil?
       source_field, target_field = repo.key_field.split("~")
 
       source_type = Entity.formats[source_field].to_s

@@ -31,7 +31,7 @@
       - mutation_count = study.all_mutations.length
       - next if mutation_count > 100_000
       - log :genotype, "#{ study } genotype overview"
-      - overview = study.job(:genotype_overview).run
+      - overview = study.job(:genotype_overview).path.tsv(:grep => list)
       - overview.unnamed = true
       - begin
         - significant_genes = Misc.process_to_hash(list){|list| overview.values_at *list}
@@ -81,7 +81,7 @@
       - log :cnv, "#{ study } CNV overview"
       - mutation_count = study.all_mutations.length
       - next if mutation_count > 100_000
-      - overview = study.job(:cnv_overview).run
+      - overview = study.job(:cnv_overview).path.tsv(:grep => list)
       - overview.unnamed = true
       - begin
         - significant_genes = Misc.process_to_hash(list){|list| overview.values_at *list.ensembl}
@@ -91,7 +91,7 @@
         - if info_list.empty?
           - next
         - else
-          - num_samples = study.samples.select_by(:has_cnv?).length
+          - num_samples = study.cnv_cohort.length
           - next if num_samples == 0
           - row = []
           - row << [num_samples]

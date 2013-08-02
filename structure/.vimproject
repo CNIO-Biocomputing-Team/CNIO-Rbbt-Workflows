@@ -1,5 +1,6 @@
 structure=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
  workflow.rb
+ workflow.md
  test_workflow.rb
  lib=lib {
   interactome_3d.rb
@@ -43,6 +44,7 @@ structure=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
    }
    entity=entity{
     Protein.haml
+    Protein2.haml
    }
   }
  }

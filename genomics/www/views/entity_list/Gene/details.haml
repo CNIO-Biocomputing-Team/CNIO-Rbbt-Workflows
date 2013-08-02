@@ -13,7 +13,7 @@
   - header "Hotspot %", "NumericValue"
   = table :table_id => "Details for #{ list_id }" do
     - tsv = TSV.setup({}, :key_field => "Ensembl Gene ID", :fields => ["Biotype", "Chromosome", "Start", "End", "Strand", "COSMIC mutations", "Mutations / Protein size", "Mean mut. distance", "Hotspot %"], :type => :list, :namespace => list.organism)
-    - list.compact.each do |gene|
+    - list.ensembl.compact.each do |gene|
       - protein = gene.proteins.sort_by{|s| s.sequence.to_s.length}.last
 
       - cosmic_mutations = gene.COSMIC_mutations.compact.select_by(:relevant?)

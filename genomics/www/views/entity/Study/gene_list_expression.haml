@@ -1,0 +1,53 @@
+- require 'rbbt/util/colorize'
+
+- list ||= nil
+- samples ||= nil
+- action_card = ActionCard.new 
+
+- action_card.require :list, :map, :samples do
+  - input :list, :select, "Ensembl Gene ID list", list, :select_options => [list].compact, :html_options => {:class => 'favourite_lists', :type => 'Gene'}
+  - input :map, :select, "Select map to use", map, :select_options => [:none, map].compact, :html_options => {:class => 'favourite_maps', :type => 'Sample'}
+  - input :samples, :select, "Select map to use", samples, :select_options => [:none, samples].compact, :html_options => {:class => 'favourite_lists', :type => 'Sample'}
+= action_card_render action_card do
+  - map ||= "none"
+  - list ||= "none"
+  - study = entity
+  - list_id = list
+  - list = Entity::List.load_list("Gene", list_id, user)
+
+  - matrix = study.matrix(:gene_expression, "Ensembl Gene ID", list.organism)
+  - submatrix = TSV.open(matrix.matrix_file, :grep => list, :type => :list, :cast => :to_f)
+
+  - submatrix.unnamed = true
+
+  - expression = TSV.setup(list, :key_field => "Ensembl Gene ID", :fields => [], :type => :list, :namespace => study.organism)
+  - submatrix.fields.each do |sample|
+    - slice = submatrix.slice(sample)
+    - expression.add_field sample do |gene,values|
+      - (slice[gene] || []).first
+
+  .heatmap
+    = resource "Heatmap of #{ list_id } expression in #{study} (#{map}).png", nil, :image do |filename|
+      - fixed_expression = TSVWorkflow.job(:change_id, nil, :tsv => expression, :format => "Associated Gene Name").exec 
+      - options = {:take_log => true, :scale => 'column' }
+
+      - m = Entity::Map.load_map("Sample", "*", map, user) if map and map != "none"
+      - if m.nil?
+        - s = Entity::List.load_list("Sample", samples, user) if samples and samples != "none"
+        - if s
+          - s = study.match_samples(s)
+          - m = TSV.setup({}, :key_field => "Sample", :fields => ["In list"], :type => :list)
+          - fixed_expression.fields.each do |sample|
+            - m[sample] = s.include?(sample)? "TRUE" : "FALSE"
+      - options[:map] = m
+      - Heatmap.heatmap3(fixed_expression, filename, options)
+
+  - expression.fields do |f|
+    - header f, NumericValue
+  = table do
+    - expression
+ 
+:sass
+  .heatmap img
+    max-width: 800px
+    max-height: 500px

@@ -1,5 +1,6 @@
 mutation_enrichment=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
  workflow.rb
+ workflow.md
  lib=lib {
   sinatra.rb
  }

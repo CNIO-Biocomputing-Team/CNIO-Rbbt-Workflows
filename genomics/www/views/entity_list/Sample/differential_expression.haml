@@ -18,10 +18,12 @@
   - when nil, 'none'
     - rest = study.samples - list
   - when 'genotyped'
-    - rest = study.samples.select_by(:has_genotype?) - list
+    - rest = study.samples.select_by(:has_genotype?) 
   - else
-    - contrast_list = Entity::List.load_list("Sample", contrast, user)
-    - rest = contrast_list - list
+    - rest = Entity::List.load_list("Sample", contrast, user)
+
+  - list = study.match_samples(list)
+  - rest = study.match_samples(rest) - list
 
   - diffs = matrix.sample_differences(list, rest)
 

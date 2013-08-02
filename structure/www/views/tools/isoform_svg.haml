@@ -1,6 +1,7 @@
 = link_css '/stylesheets/isoform_svg'
 .isoform_svg_tool
   .window
+    - log :svg, "Downloading SVG"
     = protein.marked_svg([])
 
   :javascript

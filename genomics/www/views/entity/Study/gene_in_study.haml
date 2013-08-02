@@ -11,7 +11,7 @@
   - gene = genes.first
 
   %h4 Genotype analysis
-  - overview = entity.job(:genotype_overview).run[gene]
+  - overview = entity.job(:genotype_overview).run(true).path.tsv(:grep => [gene])[gene]
   - if overview.nil?
     No mutations in this cohort
   - else
@@ -42,7 +42,7 @@
       %dd= Float === pvalue ? "%.5g" % pvalue : pvalue
 
   %h4 CNV analysis
-  - overview = entity.job(:cnv_overview).clean.run[gene]
+  - overview = entity.job(:cnv_overview).run(true).path.tsv(:grep => [gene])[gene]
   - if overview.nil?
     No CNVs in this cohort
   - else
@@ -60,6 +60,22 @@
       - else
         %dd None
 
+  %h4 Gene expression 
+  - if not entity.matrices.include? "gene_expression"
+    No gene expression in this cohort
+  - else
+    - matrix = entity.matrix(:gene_expression)
+    - values = (matrix.matrix_file.tsv(:grep => gene)[gene] || []).flatten.compact.collect{|v| v.to_f}
+    - if values.any?
+      - title = "Distribution of #{ gene.name || gene } expression values in #{entity}"
+      = resource title + '.png', nil, :image do |filename|
+        :ruby
+          R.run <<-EOF
+            values = #{R.ruby2R values}
+            rbbt.png_plot(file='#{filename}', 300, 300, 'plot(density(values), main="#{gene.name} in #{ entity }"); rug(values); abline(v=mean(values)); abline(v=(mean(values) + sd(values))); abline(v=(mean(values) + 2 * sd(values)))')
+          EOF
+    
+ 
 -#- action_card = ActionCard.new 
 -#
 -#- action_card.require :gene do

@@ -7,9 +7,12 @@ require 'translation'
 module Translation
   extend Workflow
 
+
+  self::FORMATS = Organism.identifiers("Hsa").all_fields
+
   desc "Translate gene ids to a particular format"
   input :organism, :string, "Organism code", "Hsa"
-  input :format, :string, "Target identifier format", "Ensembl Gene ID"
+  input :format, :select, "Target identifier format", "Ensembl Gene ID", :select_options => FORMATS
   input :genes, :array, "Gene id list"
   def self.translate(organism, format, genes)
     index = index(organism, format)
@@ -20,8 +23,8 @@ module Translation
 
   desc "Translate gene ids to a particular format given in another format"
   input :organism, :string, "Organism code", "Hsa"
-  input :target_format, :string, "Target identifier format", "Ensembl Gene ID"
-  input :source_format, :string, "Source identifier format", "Ensembl Gene ID"
+  input :target_format, :select, "Target identifier format", "Ensembl Gene ID", :select_options => FORMATS
+  input :source_format, :select, "Source identifier format", "Ensembl Gene ID", :select_options => FORMATS
   input :genes, :array, "Gene id list"
   def self.translate_from(organism, format, source, genes)
     index = index(organism, format, source)
@@ -32,7 +35,7 @@ module Translation
 
   desc "Translate gene ids to a particular format. Return TSV"
   input :organism, :string, "Organism code", "Hsa"
-  input :format, :string, "Target identifier format", "Ensembl Gene ID"
+  input :format, :select, "Target identifier format", "Ensembl Gene ID", :select_options => FORMATS
   input :genes, :array, "Gene id list"
   def self.tsv_translate(organism, format, genes)
     index = index(organism, format)
@@ -46,8 +49,8 @@ module Translation
 
   desc "Translate gene ids to a particular format given in another format. Return TSV"
   input :organism, :string, "Organism code", "Hsa"
-  input :target_format, :string, "Target identifier format", "Ensembl Gene ID"
-  input :source_format, :string, "Source identifier format", "Ensembl Gene ID"
+  input :target_format, :select, "Target identifier format", "Ensembl Gene ID", :select_options => FORMATS
+  input :source_format, :select, "Source identifier format", "Ensembl Gene ID", :select_options => FORMATS
   input :genes, :array, "Gene id list"
   def self.tsv_translate_from(organism, format, source, genes)
     index = index(organism, format, source)
@@ -64,7 +67,7 @@ module Translation
   
   desc "Translate protein ids to a particular format"
   input :organism, :string, "Organism code", "Hsa"
-  input :format, :string, "Target identifier format", "Ensembl Protein ID"
+  input :format, :select, "Target identifier format", "Ensembl Protein ID", :select_options => FORMATS
   input :proteins, :array, "Protein id list"
   def self.translate_protein(organism, format, proteins)
     index = protein_index(organism, format)
@@ -74,8 +77,8 @@ module Translation
 
   desc "Translate protein ids to a particular format given in another format"
   input :organism, :string, "Organism code", "Hsa"
-  input :target_format, :string, "Target identifier format", "Ensembl Protein ID"
-  input :source_format, :string, "Source identifier format", "Ensembl Protein ID"
+  input :target_format, :select, "Target identifier format", "Ensembl Protein ID", :select_options => FORMATS
+  input :source_format, :select, "Source identifier format", "Ensembl Protein ID", :select_options => FORMATS
   input :proteins, :array, "Protein id list"
   def self.translate_protein_from(organism, format, source, proteins)
     index = protein_index(organism, format, source)
@@ -85,7 +88,7 @@ module Translation
 
   desc "Translate protein ids to a particular format. Return TSV"
   input :organism, :string, "Organism code", "Hsa"
-  input :format, :string, "Target identifier format", "Ensembl Protein ID"
+  input :format, :select, "Target identifier format", "Ensembl Protein ID", :select_options => FORMATS
   input :proteins, :array, "Protein id list"
   def self.tsv_translate_protein(organism, format, proteins)
     index = protein_index(organism, format)
@@ -99,8 +102,8 @@ module Translation
 
   desc "Translate protein ids to a particular format given in another format. Return TSV"
   input :organism, :string, "Organism code", "Hsa"
-  input :target_format, :string, "Target identifier format", "Ensembl Protein ID"
-  input :source_format, :string, "Source identifier format", "Ensembl Protein ID"
+  input :target_format, :select, "Target identifier format", "Ensembl Protein ID", :select_options => FORMATS
+  input :source_format, :select, "Source identifier format", "Ensembl Protein ID", :select_options => FORMATS
   input :proteins, :array, "Protein id list"
   def self.tsv_translate_protein_from(organism, target, source, proteins)
     index = protein_index(organism, target, source)
@@ -117,7 +120,7 @@ module Translation
 
   desc "Translate probe ids to a particular format"
   input :organism, :string, "Organism code", "Hsa"
-  input :format, :string, "Target identifier format", "Ensembl Transcript ID"
+  input :format, :select, "Target identifier format", "Ensembl Transcript ID", :select_options => FORMATS
   input :probes, :array, "Probe id list"
   def self.translate_probe(organism, format, probes)
     index = probe_index(organism, format)
@@ -127,8 +130,8 @@ module Translation
 
   desc "Translate probe ids to a particular format given in another format"
   input :organism, :string, "Organism code", "Hsa"
-  input :target_format, :string, "Target identifier format", "Ensembl Transcript ID"
-  input :source_format, :string, "Source identifier format", "Ensembl Transcript ID"
+  input :target_format, :select, "Target identifier format", "Ensembl Transcript ID", :select_options => FORMATS
+  input :source_format, :select, "Source identifier format", "Ensembl Transcript ID", :select_options => FORMATS
   input :probes, :array, "Probe id list"
   def self.translate_probe_from(organism, format, source, probes)
     index = probe_index(organism, format, source)
@@ -138,7 +141,7 @@ module Translation
 
   desc "Translate probe ids to a particular format. Return TSV"
   input :organism, :string, "Organism code", "Hsa"
-  input :format, :string, "Target identifier format", "Ensembl Transcript ID"
+  input :format, :select, "Target identifier format", "Ensembl Transcript ID", :select_options => FORMATS
   input :probes, :array, "Probe id list"
   def self.tsv_translate_probe(organism, format, probes)
     index = probe_index(organism, format)
@@ -152,8 +155,8 @@ module Translation
 
   desc "Translate probe ids to a particular format given in another format. Return TSV"
   input :organism, :string, "Organism code", "Hsa"
-  input :target_format, :string, "Target identifier format", "Ensembl Transcript ID"
-  input :source_format, :string, "Source identifier format", "Ensembl Transcript ID"
+  input :target_format, :select, "Target identifier format", "Ensembl Transcript ID", :select_options => FORMATS
+  input :source_format, :select, "Source identifier format", "Ensembl Transcript ID", :select_options => FORMATS
   input :probes, :array, "Probe id list"
   def self.tsv_translate_probe_from(organism, target, source, probes)
     index = probe_index(organism, target, source)

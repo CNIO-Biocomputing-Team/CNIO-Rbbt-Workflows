@@ -1,0 +1,15 @@
+- studies = user_studies[user];
+- studies = studies.select{|s| Study.setup(s).matrices.include? "gene_expression"}
+
+- action_card = ActionCard.new  do
+  - input :study, :select, "Study", nil, :select_options => studies
+  - input :map, :select, "Select map to use", nil, :select_options => [:none], :html_options => {:class => 'favourite_maps', :type => 'Sample'}
+  - input :samples, :select, "Select map to use", nil, :select_options => [:none], :html_options => {:class => 'favourite_lists', :type => 'Sample'}
+
+- action_card.require :study, :map, :samples 
+
+= action_card_render action_card do
+  - Study.setup(study)
+  = fragment study.action_link("gene_list_expression", "#{ list_id } expression in #{ study }", :list => list_id, :map => map, :samples => samples)
+
+

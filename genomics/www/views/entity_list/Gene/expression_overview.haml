@@ -1,0 +1,43 @@
+- authorize!
+- studies = user_studies[user]
+
+= action_card_render ActionCard.new do
+
+  %h4 Genotype overview
+  - list = list.ensembl
+  - expression = TSV.setup(list, :key_field => "Ensembl Gene ID", :fields => [], :type => :list, :namespace => list.organism)
+  - expression.with_unnamed do
+    - jobs = []
+    
+    - studies.each do |study|
+      - Study.setup study
+      - next if study =~ /Pan.*OIC.*/
+      - next unless study.matrices.include? "gene_expression"
+      - log :study, "Processing #{ study }"
+
+      - submatrix = TSV.open(StringIO.new(study.job(:expression_barcode).run(true).path.pipe_to("sed 's/TRUE/1/g;s/FALSE/0/g'").read), :grep => list, :type => :list, :cast => :to_i)
+      - submatrix.unnamed = true
+      - if submatrix.values_at(*list).flatten.compact.empty?
+        - ddd study
+        - next
+      - expression.add_field study do |gene,values|
+        - (exp = submatrix[gene]).nil? ? "NA" : Misc.mean(exp)
+
+  .heatmap
+    = resource "Heatmap of #{ list_id } expression in all studies.png", nil, :image do |filename|
+      - expression.fields = expression.fields.collect{|f| f.sub /-.*/, '' }
+      - fixed_expression = TSVWorkflow.job(:change_id, nil, :tsv => expression, :format => "Associated Gene Name").exec 
+      - fixed_expression = fixed_expression.select(:key => fixed_expression.keys.reject{|k| k.nil? or k.empty?})
+      - ddd fixed_expression
+      - options = {:take_log => false, :scale => 'none'}
+      - Heatmap.heatmap3(fixed_expression, filename, options)
+
+  - expression.fields do |f|
+    - header f, "NumericValue"
+  = table do
+    - expression
+ 
+:sass
+  .heatmap img
+    max-width: 800px
+    max-height: 500px
