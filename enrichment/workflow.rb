@@ -6,14 +6,8 @@ require 'rbbt/statistics/random_walk'
 
 Workflow.require_workflow 'Genomics'
 
-require 'rbbt/entity'
-require 'rbbt/entity/gene'
-require 'rbbt/sources/organism'
-require 'rbbt/sources/kegg'
-require 'rbbt/sources/go'
-require 'rbbt/sources/reactome'
-require 'rbbt/sources/NCI'
-require 'rbbt/sources/InterPro'
+require 'rbbt/association'
+require 'rbbt/gene_associations'
 
 Workflow.require_workflow 'Translation'
 Workflow.require_workflow 'TSVWorkflow'
@@ -44,49 +38,20 @@ module Enrichment
     RENAMES[gene] = "Cadherin"
   end
 
-  DATABASES = %w(kegg go go_bp go_mf go_cc interpro pfam reactome nature biocarta)
+  DATABASES = Association.databases.keys
 
   helper :database_info do |database, organism|
-
-    case database.to_s
-    when 'kegg'
-      database_tsv = KEGG.gene_pathway.tsv :key_field => 'KEGG Gene ID', :fields => ["KEGG Pathway ID"], :type => :double, :persist => true, :unnamed => false, :merge => true
-      all_db_genes = Gene.setup(database_tsv.keys, "KEGG Gene ID", organism).uniq
-    when 'go'
-      database_tsv = Organism.gene_go(organism).tsv :key_field => "Ensembl Gene ID", :fields => ["GO ID"], :type => :double, :persist => true, :unnamed => false, :merge => true
-      all_db_genes = Gene.setup(database_tsv.keys, "Ensembl Gene ID", organism).uniq
-    when 'go_bp'
-      database_tsv = Organism.gene_go_bp(organism).tsv :key_field => "Ensembl Gene ID", :fields => ["GO ID"], :type => :double, :persist => true, :unnamed => false, :merge => true
-      all_db_genes = Gene.setup(database_tsv.keys, "Ensembl Gene ID", organism).uniq
-    when 'go_mf'
-      database_tsv = Organism.gene_go_mf(organism).tsv :key_field => "Ensembl Gene ID", :fields => ["GO ID"], :type => :double, :persist => true, :unnamed => false, :merge => true
-      all_db_genes = Gene.setup(database_tsv.keys, "Ensembl Gene ID", organism).uniq
-    when 'go_cc'
-      database_tsv = Organism.gene_go_cc(organism).tsv :key_field => "Ensembl Gene ID", :fields => ["GO ID"], :type => :double, :persist => true, :unnamed => false, :merge => true
-      all_db_genes = Gene.setup(database_tsv.keys, "Ensembl Gene ID", organism).uniq
-    when 'interpro'
-      database_tsv = InterPro.protein_domains.tsv :key_field => "UniProt/SwissProt Accession", :fields => ["InterPro ID"], :type => :double, :persist => true, :unnamed => false, :merge => true
-      all_db_genes = Gene.setup(database_tsv.keys, "UniProt/SwissProt Accession", organism).uniq
-    when 'pfam'
-      database_tsv = Organism.gene_pfam(organism).tsv :key_field => "Ensembl Gene ID", :fields => ["Pfam Domain"], :type => :double, :persist => true, :unnamed => false, :merge => true
-      all_db_genes = Gene.setup(database_tsv.keys, "Ensembl Gene ID", organism).uniq
-    when 'reactome'
-      database_tsv = Reactome.protein_pathways.tsv :key_field => "UniProt/SwissProt Accession", :fields => ["Reactome Pathway ID"], :persist => true, :merge => true, :type => :double, :unnamed => false
-      all_db_genes = Gene.setup(database_tsv.keys, "UniProt/SwissProt Accession", organism).uniq
-    when 'nature'
-      database_tsv = NCI.nature_pathways.tsv :key_field => "UniProt/SwissProt Accession", :fields => ["NCI Nature Pathway ID"], :persist => true, :merge => true, :type => :double, :unnamed => false
-      all_db_genes = Gene.setup(database_tsv.keys, "UniProt/SwissProt Accession", organism).uniq
-    when 'biocarta'
-      database_tsv = NCI.biocarta_pathways.tsv :key_field => "Entrez Gene ID", :fields => ["NCI BioCarta Pathway ID"], :persist => true, :merge => true, :type => :double, :unnamed => false
-      all_db_genes = Gene.setup(database_tsv.keys, "Entrez Gene ID", organism).uniq
-    else
-      raise "Database #{ database } not recognized"
+    @@databases ||= {}
+    @@databases[database] ||= {}
+    @@databases[database][organism] ||= begin
+      file, options = Association.databases[database]
+      options ||= {}
+      association = Association.open(file, options.merge(:namespace => organism, :source => "Ensembl Gene ID"))
+      [association, association.keys, association.key_field, association.fields.first]
     end
-
-    [database_tsv, all_db_genes, database_tsv.key_field, database_tsv.fields.first]
   end
 
-  input :database, :select, "Database code: #{DATABASES * ", "}", nil, :select_options => DATABASES
+  input :database, :select, "Database code", nil, :select_options => DATABASES
   input :list, :array, "Gene list in any supported format; they will be translated acordingly"
   input :organism, :string, "Organism code (not used for kegg)", "Hsa"
   input :cutoff, :float, "Cufoff value", 0.05
@@ -103,18 +68,21 @@ module Enrichment
 
     database_tsv, all_db_genes, database_key_field, database_field = database_info database, organism
 
-    if database_key_field != "Ensembl Gene ID"
-      database_tsv = TSVWorkflow.job(:change_id, "Enrichment", :tsv => database_tsv, :format => "Ensembl Gene ID", :organism => organism).run
-      all_db_genes = all_db_genes.to("Ensembl Gene ID").compact.uniq
-    end
-
     if invert_background and background
       background = all_db_genes - background
     end
 
     if mask_diseases
       Log.debug("Masking #{MASKED_TERMS * ", "}")
-      masked = (MASKED_IDS[database] ||= Misc.prepare_entity(database_tsv.values.flatten.uniq, database_field).select{|t| t.name =~ /#{MASKED_TERMS * "|"}/i})
+      masked = MASKED_IDS[database] ||= database_tsv.with_unnamed do
+        terms = database_tsv.values.flatten.uniq
+        terms = Misc.prepare_entity(terms, database_field)
+        if terms.respond_to? :name
+          terms.select{|t| t.name =~ /#{MASKED_TERMS * "|"}/i}
+        else
+          masked = nil
+        end
+      end
     else
       masked = nil
     end
@@ -123,7 +91,7 @@ module Enrichment
   end
   export_synchronous :enrichment
 
-  input :database, :string, "Database code: Kegg, Nature, Reactome, BioCarta, GO_BP, GO_CC, GO_MF"
+  input :database, :select, "Database code", nil, :select_options => DATABASES
   input :list, :array, "Gene list in any supported format; they will be translated acordingly"
   input :organism, :string, "Organism code (not used for kegg)", "Hsa"
   input :permutations, :integer, "Number of permutations used to compute p.value", 10000
@@ -152,6 +120,4 @@ module Enrichment
     database_tsv.rank_enrichment(ensembl, :persist => (background.nil? or background.empty?), :cutoff => cutoff, :fdr => fdr, :background => background, :rename => (fix_clusters ? RENAMES : nil), :permutations => permutations, :persist_permutations => true, :missing => missing).select("p-value"){|p| p.to_f <= cutoff}.tap{|tsv| tsv.namespace = organism}
   end
   export_asynchronous :rank_enrichment
-
-
 end

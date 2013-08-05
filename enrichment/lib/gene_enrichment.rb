@@ -1,6 +1,5 @@
 require 'rbbt/entity/gene'
 
-
 module Gene
   property :enrichment_in => :array do |*args|
     database,cutoff,fdr = args

@@ -13,6 +13,7 @@
   - g.entities["Study"] = []
 
   - study_genes = TSV.setup({}, :key_field => "Study", :fields => ["Ensembl Gene ID", "Significance", "Highlight"], :type => :double)
+  - significant_study_genes = TSV.setup({}, :key_field => "Study", :fields => ["Ensembl Gene ID", "Significance", "Highlight"], :type => :double)
   - gene_counts = {}
   - studies.each do |study|
     - log :study, "Processing #{ study }"
@@ -22,6 +23,7 @@
     - genotype_overview = study.job(:genotype_overview).run
 
     - all_genes = genotype_overview.keys
+    - significant_genes = genotype_overview.select("Mutation significance"){|v| v.first and v.first != "> 0.1" and v.first.to_f < 0.05}.keys
 
     - g.entities["Gene"] += list.subset(all_genes)
 
@@ -33,12 +35,15 @@
 
     - g.entities["Study"] << study
     - study_genes[study] = [all_genes, gene_scores.values_at(*all_genes), gene_highlights.values_at(*all_genes)]
+    - significant_study_genes[study] = [significant_genes, gene_scores.values_at(*significant_genes), gene_highlights.values_at(*significant_genes)]
 
   - gene_counts = Misc.counts(g.entities["Gene"])
   - g.entities["Gene"].uniq!
 
   - kb.associations("mutated", study_genes, {})
-  - g.databases << "mutated"
+
+  - kb.associations("significantly_mutated", significant_study_genes, {})
+  - g.databases << "significantly_mutated"
 
   -#{{{ Ascetics
   - g.add_aesthetic :nodes, :shape, :entity_type, {"Study" => "HEXAGON"}

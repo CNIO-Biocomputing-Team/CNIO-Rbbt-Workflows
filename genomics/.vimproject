@@ -16,6 +16,7 @@ Genomics=/$PWD filter="*.config *.rb *.rake Rakefile *.rdoc *.R *.sh *.js *.haml
     snp.rb
     transcript.rb
    }
+   gene_associations.rb
   }
  }
  www=www{
@@ -61,6 +62,7 @@ Genomics=/$PWD filter="*.config *.rb *.rake Rakefile *.rdoc *.R *.sh *.js *.haml
     }
     Gene=Gene{
      details.haml
+     COSMIC_overview.haml
      gene_list_in_study.haml
      study_overview.haml
      expression_overview.haml

@@ -71,7 +71,7 @@ class Graph
       @associations.keys
     end
 
-    def associations(name, source, options)
+    def associations(name, source, options = {})
       field, entity_type, persist_dir = options.values_at :target, :target_type, :source_type, :persist_dir
 
       tsv_fields = TSV === source ? 
@@ -115,6 +115,7 @@ class Graph
             when :double
               tsv.through do |source, values|
                 next if source.nil?
+                next if values.empty?
                 targets = values.first
                 rest = Misc.zip_fields values[1..-1]
 

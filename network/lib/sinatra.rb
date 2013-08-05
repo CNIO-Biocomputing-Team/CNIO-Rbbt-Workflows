@@ -1,6 +1,10 @@
 require 'rbbt/rest/web_tool'
+require 'rbbt/sources/pina'
+require 'rbbt/sources/string'
 require 'rbbt/sources/InterPro'
 require 'graph'
+
+require 'rbbt/gene_associations'
 
 include Sinatra::RbbtToolHelper
 
@@ -20,18 +24,27 @@ Rbbt.claim Rbbt.www.views.public.js.cytoscape.find(:lib), :proc do |dir|
 end
 
 dir = Rbbt.var.knowledge_base.find :lib
-$knowledge_base = Graph::KnowledgeBase.new dir do |kb|
+$default_organism = "Hsa/jan2013"
+$knowledge_base = Graph::KnowledgeBase.new dir
 
-  associations("pina", Pina.protein_protein, :target => "Interactor UniProt/SwissProt Accession", :target_type => "UniProt/SwissProt Accession")
-  associations("string", STRING.protein_protein,  :target => "Interactor Ensembl Protein ID", :source_type => "Gene:Ensembl Protein ID", :target_type => "Gene:Ensembl Protein ID")
-  associations("go_bp", Organism.gene_go_bp("Hsa/jan2013"), :target => "GO ID", :type => :flat)
-  associations("go_mf", Organism.gene_go_mf("Hsa/jan2013"), :target => "GO ID", :type => :flat)
-  associations("go_cc", Organism.gene_go_cc("Hsa/jan2013"), :target => "GO ID", :type => :flat)
-  associations("nature", NCI.nature_pathways, :key_field => "UniProt/SwissProt Accession", :target => "NCI Nature Pathway ID", :type => :flat, :merge => true)
-  associations("interpro", InterPro.protein_domains, :key_field => "UniProt/SwissProt Accession", :fields => ["InterPro ID"], :type => :flat, :merge => false)
+#$knowledge_base.associations("pina", Pina.protein_protein, :target => "Interactor UniProt/SwissProt Accession", :target_type => "UniProt/SwissProt Accession")
+$knowledge_base.associations("string", STRING.protein_protein,  :target => "Interactor Ensembl Protein ID", :source_type => "Gene:Ensembl Protein ID", :target_type => "Gene:Ensembl Protein ID")
+
+Association.databases.each do |database, info|
+  file, options = info
+  options ||= {}
+  options[:namespace] ||= $default_organism
+  options[:source] = "Ensembl Gene ID"
+
+  $knowledge_base.associations(database, Association.open(file, options))
 end
+#$knowledge_base.associations("go_bp", Organism.gene_go_bp("Hsa/jan2013"), :target => "GO ID", :type => :flat)
+#$knowledge_base.associations("go_mf", Organism.gene_go_mf("Hsa/jan2013"), :target => "GO ID", :type => :flat)
+#$knowledge_base.associations("go_cc", Organism.gene_go_cc("Hsa/jan2013"), :target => "GO ID", :type => :flat)
+#$knowledge_base.associations("nature", NCI.nature_pathways, :key_field => "UniProt/SwissProt Accession", :target => "NCI Nature Pathway ID", :type => :flat, :merge => true)
+#$knowledge_base.associations("interpro", InterPro.protein_domains, :key_field => "UniProt/SwissProt Accession", :fields => ["InterPro ID"], :type => :flat, :merge => false)
 
-$knowledge_base.info["All"] = {:organism => "Hsa/jan2013"}
+$knowledge_base.info["All"] = {:organism => $default_organism}
 $knowledge_base.info["Gene"] = {:format => "Ensembl Gene ID"}
 
 Rbbt.www.views.public.js.cytoscape.find(:lib).produce

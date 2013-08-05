@@ -1,4 +1,4 @@
-- databases = %w(kegg nature reactome biocarta go_bp go_cc go_mf pfam biotype interpro)
+- databases = Association.databases.keys
 
 - action_card = ActionCard.new do
   - input :database, :select, "Pathway database", :kegg, :select_options => databases

@@ -3,60 +3,31 @@ require 'rbbt/util/misc'
 require 'rbbt/workflow'
 require 'rbbt/statistics/hypergeometric'
 require 'rbbt/statistics/random_walk'
-require 'rbbt/entity'
+
+Workflow.require_workflow 'Genomics'
+
 require 'rbbt/entity/gene'
-require 'rbbt/sources/go'
-require 'rbbt/sources/kegg'
-require 'rbbt/sources/organism'
-require 'rbbt/sources/NCI'
-require 'rbbt/sources/InterPro'
-require 'rbbt/sources/reactome'
-require 'rbbt/entity/genomic_mutation'
+
+require 'rbbt/association'
+require 'rbbt/gene_associations'
 
 module MutationEnrichment
-
   extend Workflow
 
-  #{{{ BASE AND GENE COUNTS
+  DATABASES = Association.databases.keys
 
   helper :database_info do |database, organism|
-
-    case database.to_s
-    when 'kegg'
-      database_tsv = KEGG.gene_pathway.tsv :key_field => 'KEGG Gene ID', :fields => ["KEGG Pathway ID"], :type => :flat, :persist => true, :unnamed => false, :merge => true
-      all_db_genes = Gene.setup(database_tsv.keys, "KEGG Gene ID", organism).uniq
-    when 'go'
-      database_tsv = Organism.gene_go(organism).tsv :key_field => "Ensembl Gene ID", :fields => ["GO ID"], :type => :flat, :persist => true, :unnamed => false, :merge => true
-      all_db_genes = Gene.setup(database_tsv.keys, "Ensembl Gene ID", organism).uniq
-    when 'go_bp'
-      database_tsv = Organism.gene_go_bp(organism).tsv :key_field => "Ensembl Gene ID", :fields => ["GO ID"], :type => :flat, :persist => true, :unnamed => false, :merge => true
-      all_db_genes = Gene.setup(database_tsv.keys, "Ensembl Gene ID", organism).uniq
-    when 'go_mf'
-      database_tsv = Organism.gene_go_mf(organism).tsv :key_field => "Ensembl Gene ID", :fields => ["GO ID"], :type => :flat, :persist => true, :unnamed => false, :merge => true
-      all_db_genes = Gene.setup(database_tsv.keys, "Ensembl Gene ID", organism).uniq
-    when 'go_cc'
-      database_tsv = Organism.gene_go_cc(organism).tsv :key_field => "Ensembl Gene ID", :fields => ["GO ID"], :type => :flat, :persist => true, :unnamed => false, :merge => true
-      all_db_genes = Gene.setup(database_tsv.keys, "Ensembl Gene ID", organism).uniq
-    when 'interpro'
-      database_tsv = InterPro.protein_domains.tsv :key_field => "UniProt/SwissProt Accession", :fields => ["InterPro ID"], :type => :flat, :persist => true, :unnamed => false, :merge => true
-      all_db_genes = Gene.setup(database_tsv.keys, "UniProt/SwissProt Accession", organism).uniq
-    when 'pfam'
-      database_tsv = Organism.gene_pfam(organism).tsv :key_field => "Ensembl Gene ID", :fields => ["Pfam Domain"], :type => :flat, :persist => true, :unnamed => false, :merge => true
-      all_db_genes = Gene.setup(database_tsv.keys, "Ensembl Gene ID", organism).uniq
-    when 'reactome'
-      database_tsv = Reactome.protein_pathways.tsv :key_field => "UniProt/SwissProt Accession", :fields => ["Reactome Pathway ID"], :persist => true, :merge => true, :type => :flat, :unnamed => false
-      all_db_genes = Gene.setup(database_tsv.keys, "UniProt/SwissProt Accession", organism).uniq
-    when 'nature'
-      database_tsv = NCI.nature_pathways.tsv :key_field => "UniProt/SwissProt Accession", :fields => ["NCI Nature Pathway ID"], :persist => true, :merge => true, :type => :flat, :unnamed => false
-      all_db_genes = Gene.setup(database_tsv.keys, "UniProt/SwissProt Accession", organism).uniq
-    when 'biocarta'
-      database_tsv = NCI.biocarta_pathways.tsv :key_field => "Entrez Gene ID", :fields => ["NCI BioCarta Pathway ID"], :persist => true, :merge => true, :type => :flat, :unnamed => false
-      all_db_genes = Gene.setup(database_tsv.keys, "Entrez Gene ID", organism).uniq
+    @@databases ||= {}
+    @@databases[database] ||= {}
+    @@databases[database][organism] ||= begin
+      file, options = Association.databases[database]
+      options ||= {}
+      association = Association.open(file, options.merge(:namespace => organism, :source => "Ensembl Gene ID"))
+      [association, association.keys, association.key_field, association.fields.first]
     end
-
-    [database_tsv, all_db_genes, database_tsv.key_field, database_tsv.fields.first]
   end
 
+  #{{{ BASE AND GENE COUNTS
   input :masked_genes, :array, "Ensembl Gene ID list of genes to mask", []
   input :organism, :string, "Organism code"
   task :pathway_base_counts => :tsv do |masked_genes, organism|
@@ -120,7 +91,7 @@ module MutationEnrichment
   #{{{ Mutation enrichment
    
   dep do |jobname, inputs| job(inputs[:baseline] || :pathway_base_counts, inputs[:database].to_s, inputs) end
-  input :database, :select, "Database code", :kegg, :select_options => [:kegg, :nature, :reactome, :biocarta, :go, :go_bp, :go_cc, :go_mf, :pfam, :interpro]
+  input :database, :select, "Database code", nil, :select_options => DATABASES
   input :baseline, :select, "Type of baseline to use", :pathway_base_counts, :select_options => [:pathway_base_counts, :pathway_gene_counts]
   input :mutations, :array, "Genomic Mutation"
   input :fdr, :boolean, "BH FDR corrections", true
@@ -201,7 +172,7 @@ module MutationEnrichment
   #{{{ Sample enrichment
   
   dep do |jobname, inputs| job(inputs[:baseline], inputs[:database].to_s, inputs) end
-  input :database, :select, "Database code", :kegg, :select_options => [:kegg, :nature, :reactome, :biocarta, :go, :go_bp, :go_cc, :go_mf, :pfam, :interpro]
+  input :database, :select, "Database code", nil, :select_options => DATABASES
   input :baseline, :select, "Type of baseline to use", :pathway_base_counts, :select_options => [:pathway_base_counts, :pathway_gene_counts]
   input :mutations, :tsv, "Genomic Mutation and Sample. Example row: '10:12345678:A{TAB}Sample01{TAB}Sample02'"
   input :permutations, :integer, "Number of permutations in test", 10000

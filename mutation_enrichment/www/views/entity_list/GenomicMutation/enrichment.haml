@@ -1,5 +1,5 @@
 - action_card = ActionCard.new do
-  - input :database, :select, "Database code", nil, :select_options => [:kegg, :nature, :reactome, :biocarta, :go_bp, :go_mf, :go_cc, :pfam, :interpro]
+  - input :database, :select, "Database code", nil, :select_options => Association.databases.keys
   - input :cutoff, :float, "Pvalue cutoff", 0.1
    
 - action_card.require :database, :cutoff
