@@ -5,8 +5,10 @@ require 'rbbt/statistics/hypergeometric'
 require 'rbbt/statistics/random_walk'
 
 Workflow.require_workflow 'Genomics'
+Workflow.require_workflow 'TSVWorkflow'
 
 require 'rbbt/entity/gene'
+require 'rbbt/entity/genomic_mutation'
 
 require 'rbbt/association'
 require 'rbbt/gene_associations'
@@ -21,15 +23,16 @@ module MutationEnrichment
     @@databases[database] ||= {}
     @@databases[database][organism] ||= begin
       file, options = Association.databases[database]
+      options[:fields] ||= [1]
       options ||= {}
-      association = Association.open(file, options.merge(:namespace => organism, :source => "Ensembl Gene ID"))
+      association = Association.open(file, options.merge(:namespace => organism, :source_type => "Ensembl Gene ID", :target_type => "Ensembl Gene ID", :type => :flat))
       [association, association.keys, association.key_field, association.fields.first]
     end
   end
 
   #{{{ BASE AND GENE COUNTS
   input :masked_genes, :array, "Ensembl Gene ID list of genes to mask", []
-  input :organism, :string, "Organism code"
+  input :organism, :string, "Organism code", "Hsa"
   task :pathway_base_counts => :tsv do |masked_genes, organism|
     database = clean_name
     log :loading_genes, "Loading genes from #{ database } #{ organism }"
@@ -96,7 +99,7 @@ module MutationEnrichment
   input :mutations, :array, "Genomic Mutation"
   input :fdr, :boolean, "BH FDR corrections", true
   input :masked_genes, :array, "Ensembl Gene ID list of genes to mask", []
-  input :organism, :string, "Organism code"
+  input :organism, :string, "Organism code", "Hsa"
   input :watson, :boolean, "Alleles reported in the watson (forward) strand", true
   task :mutation_pathway_enrichment => :tsv do |database,baseline,mutations,fdr,masked_genes,organism, watson|
     counts        = step(baseline).load

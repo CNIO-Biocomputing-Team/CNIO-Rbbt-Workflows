@@ -44,9 +44,9 @@ module Enrichment
     @@databases ||= {}
     @@databases[database] ||= {}
     @@databases[database][organism] ||= begin
-      file, options = Association.databases[database]
-      options ||= {}
-      association = Association.open(file, options.merge(:namespace => organism, :source => "Ensembl Gene ID"))
+      file, options = Association.get_database(database)
+      open_options = options.merge(:namespace => organism, :source_type => "Ensembl Gene ID", :target_type => "Ensembl Gene ID")
+      association = Association.open(file, open_options)
       [association, association.keys, association.key_field, association.fields.first]
     end
   end
@@ -72,7 +72,7 @@ module Enrichment
       background = all_db_genes - background
     end
 
-    if mask_diseases
+    if mask_diseases and not Gene == Entity.formats[database_field]
       Log.debug("Masking #{MASKED_TERMS * ", "}")
       masked = MASKED_IDS[database] ||= database_tsv.with_unnamed do
         terms = database_tsv.values.flatten.uniq
@@ -98,8 +98,9 @@ module Enrichment
   input :cutoff, :float, "Cufoff value", 0.05
   input :fdr, :boolean, "Perform Benjamini-Hochberg FDR correction", true
   input :background, :array, "Enrichment background", nil
+  input :mask_diseases, :boolean, "Mask disease related terms", true
   input :fix_clusters, :boolean, "Fixed dependence in gene clusters", true
-  task :rank_enrichment => :tsv do |database, list, organism, permutations, cutoff, fdr, background, fix_clusters|
+  task :rank_enrichment => :tsv do |database, list, organism, permutations, cutoff, fdr, background, mask_diseases, fix_clusters|
     ensembl    = Translation.job(:translate, nil, :format => "Ensembl Gene ID", :genes => list, :organism => organism).run.compact.uniq
     background = Translation.job(:translate, nil, :format => "Ensembl Gene ID", :genes => background, :organism => organism).run.compact.uniq if background and background.any?
     Gene.setup(ensembl, "Ensembl Gene ID", "Hsa")
@@ -112,12 +113,27 @@ module Enrichment
       all_db_genes = all_db_genes.to("Ensembl Gene ID").compact.uniq
     end
 
+    if mask_diseases and not Gene == Entity.formats[database_field]
+      Log.debug("Masking #{MASKED_TERMS * ", "}")
+      masked = MASKED_IDS[database] ||= database_tsv.with_unnamed do
+        terms = database_tsv.values.flatten.uniq
+        terms = Misc.prepare_entity(terms, database_field)
+        if terms.respond_to? :name
+          terms.select{|t| t.name =~ /#{MASKED_TERMS * "|"}/i}
+        else
+          masked = nil
+        end
+      end
+    else
+      masked = nil
+    end
+
     database_tsv = database_tsv.reorder database_field
 
     missing = (all_db_genes - list).length
 
     cutoff = cutoff.to_f
-    database_tsv.rank_enrichment(ensembl, :persist => (background.nil? or background.empty?), :cutoff => cutoff, :fdr => fdr, :background => background, :rename => (fix_clusters ? RENAMES : nil), :permutations => permutations, :persist_permutations => true, :missing => missing).select("p-value"){|p| p.to_f <= cutoff}.tap{|tsv| tsv.namespace = organism}
+    database_tsv.rank_enrichment(ensembl, :persist => (background.nil? or background.empty?), :cutoff => cutoff, :fdr => fdr, :background => background, :rename => (fix_clusters ? RENAMES : nil), :permutations => permutations, :persist_permutations => true, :missing => missing, :masked => masked).select("p-value"){|p| p.to_f <= cutoff}.tap{|tsv| tsv.namespace = organism}
   end
   export_asynchronous :rank_enrichment
 end

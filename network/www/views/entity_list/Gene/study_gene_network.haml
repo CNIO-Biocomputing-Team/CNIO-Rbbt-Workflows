@@ -40,9 +40,9 @@
   - gene_counts = Misc.counts(g.entities["Gene"])
   - g.entities["Gene"].uniq!
 
-  - kb.associations("mutated", study_genes, {})
+  - kb.register("mutated", study_genes, {})
 
-  - kb.associations("significantly_mutated", significant_study_genes, {})
+  - kb.register("significantly_mutated", significant_study_genes, {})
   - g.databases << "significantly_mutated"
 
   -#{{{ Ascetics

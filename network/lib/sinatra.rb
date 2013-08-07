@@ -27,25 +27,29 @@ dir = Rbbt.var.knowledge_base.find :lib
 $default_organism = "Hsa/jan2013"
 $knowledge_base = Graph::KnowledgeBase.new dir
 
-#$knowledge_base.associations("pina", Pina.protein_protein, :target => "Interactor UniProt/SwissProt Accession", :target_type => "UniProt/SwissProt Accession")
-$knowledge_base.associations("string", STRING.protein_protein,  :target => "Interactor Ensembl Protein ID", :source_type => "Gene:Ensembl Protein ID", :target_type => "Gene:Ensembl Protein ID")
+$knowledge_base.info["All"] = {:organism => $default_organism}
+$knowledge_base.info["Gene"] = {:format => "Ensembl Gene ID"}
+
 
 Association.databases.each do |database, info|
   file, options = info
   options ||= {}
-  options[:namespace] ||= $default_organism
-  options[:source] = "Ensembl Gene ID"
+  options[:namespace] = $default_organism
+  options[:source_type] = "Ensembl Gene ID"
+  options[:target_type] = "Ensembl Gene ID"
 
-  $knowledge_base.associations(database, Association.open(file, options))
+  $knowledge_base.register database, file, options
+  #$knowledge_base.associations(database, Association.open(file, options), options)
+  #
 end
+
+#$knowledge_base.associations("string", STRING.protein_protein,  :target => "Interactor Ensembl Protein ID", :source_type => "Gene:Ensembl Protein ID", :target_type => "Gene:Ensembl Protein ID")
 #$knowledge_base.associations("go_bp", Organism.gene_go_bp("Hsa/jan2013"), :target => "GO ID", :type => :flat)
 #$knowledge_base.associations("go_mf", Organism.gene_go_mf("Hsa/jan2013"), :target => "GO ID", :type => :flat)
 #$knowledge_base.associations("go_cc", Organism.gene_go_cc("Hsa/jan2013"), :target => "GO ID", :type => :flat)
 #$knowledge_base.associations("nature", NCI.nature_pathways, :key_field => "UniProt/SwissProt Accession", :target => "NCI Nature Pathway ID", :type => :flat, :merge => true)
 #$knowledge_base.associations("interpro", InterPro.protein_domains, :key_field => "UniProt/SwissProt Accession", :fields => ["InterPro ID"], :type => :flat, :merge => false)
 
-$knowledge_base.info["All"] = {:organism => $default_organism}
-$knowledge_base.info["Gene"] = {:format => "Ensembl Gene ID"}
 
 Rbbt.www.views.public.js.cytoscape.find(:lib).produce
 

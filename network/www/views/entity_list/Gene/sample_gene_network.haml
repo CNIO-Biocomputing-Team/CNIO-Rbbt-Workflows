@@ -18,7 +18,7 @@
   - if study.has_genotypes?
     - s2g = study.samples_with_gene_affected
     - s2g = TSV.setup(s2g, :key_field => "Ensembl Gene ID", :fields => ["Sample"], :type => :flat).select(list)
-    - kb.associations("mutations", s2g, {})
+    - kb.register("mutations", s2g, {})
     - g.databases << 'mutations'
 
     - g.entities["Gene"] += s2g.keys
@@ -28,14 +28,14 @@
   - if study.has_cnv?
     - s2g = study.samples_with_gene_lost
     - s2g = TSV.setup(s2g, :key_field => "Ensembl Gene ID", :fields => ["Sample"], :type => :flat).select(list)
-    - kb.associations("lost", s2g, {})
+    - kb.register("lost", s2g, {})
     - g.databases << 'lost'
     - g.entities["Gene"] += s2g.keys
     - g.entities["Sample"] += s2g.values.flatten.compact.uniq
 
     - s2g = study.samples_with_gene_gained
     - s2g = TSV.setup(s2g, :key_field => "Ensembl Gene ID", :fields => ["Sample"], :type => :flat).select(list)
-    - kb.associations("gained", s2g, {})
+    - kb.register("gained", s2g, {})
     - g.databases << 'gained'
     - g.entities["Gene"] += s2g.keys
     - g.entities["Sample"] += s2g.values.flatten.compact.uniq
