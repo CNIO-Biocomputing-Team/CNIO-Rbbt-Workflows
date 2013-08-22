@@ -5,6 +5,8 @@
   - header "Chromosome", "NumericValue"
   - header "Start", "NumericValue"
   - header "End", "NumericValue"
+  - header "Size", "NumericValue"
+  - header "Protein size", "NumericValue"
   = table :table_id => "Details for #{ list_id }" do
     - tsv = TSV.setup({}, :key_field => "Ensembl Gene ID", :fields => ["Biotype", "Chromosome", "Start", "End", "Strand", "Size", "Protein size"], :type => :list, :namespace => list.organism)
     - list.ensembl.compact.each do |gene|

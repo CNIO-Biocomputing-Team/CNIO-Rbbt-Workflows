@@ -130,18 +130,6 @@ $.widget("rbbt.cytoscape_tool", {
     return result
   },
 
-  //  DRAWING
-  //_get_edges: function(database){
-  //  //return $.ajax({method: 'POST', url: '/tool/cytoscape/get_edges', data: $.extend(this.options.entity_options, {database: database, entities: JSON.stringify(this.options.entities), _format: 'json'}), async: false}).responseJSON;
-  //  return JSON.parse(get_ajax({method: 'POST', url: '/tool/cytoscape/get_edges', data: $.extend(this.options.entity_options, {database: database, entities: JSON.stringify(this.options.entities), _format: 'json'}), async: false}));
-  //},
-
-
-  //_get_nodes: function(type, entities){
-  //  //return $.ajax({method: 'POST', url: '/tool/cytoscape/get_nodes', data: $.extend(this.options.entity_options, {type: type, entities: entities.join("|"), _format: 'json'}), async: false}).responseJSON;
-  //  return JSON.parse(get_ajax({method: 'POST', url: '/tool/cytoscape/get_nodes', data: $.extend(this.options.entity_options, {type: type, entities: entities.join("|"), _format: 'json'}), async: false}));
-  //},
-
   _get_node_schema: function(){
     //return $.ajax({method: 'GET', url: '/tool/cytoscape/node_schema', async: false}).responseJSON;
     return JSON.parse(get_ajax({method: 'GET', url: '/tool/cytoscape/node_schema', async: false}));
@@ -207,13 +195,14 @@ $.widget("rbbt.cytoscape_tool", {
   draw: function(){
    var config = {network: this._network(), visualStyle: this.options.visualStyle}
    if (undefined !== this.options.points){
-    config.layout = {name:"Preset", options:{fitToScreen: true, points: this.options.points}}
+     var points = array_values(this.options.points);
+     config.layout = {name:"Preset", options:{fitToScreen: true, points: points}}
    }
    this._vis().draw(config)
    this._update_events()
   },
  
-  set_positions: function(points){
+  set_points: function(points){
    this.options.points = points
   },
   
@@ -390,14 +379,7 @@ $.widget("rbbt.cytoscape_tool", {
    if (undefined !== this.options.visualStyle[elem][aesthetic].passthroughMapper) type = 'passthrough'
 
    this._add_aesthetic(elem, aesthetic, type, feature, map)
-  },
-
-
-  //{{{ OLD
-
-
-  add_map: function(aesthetic, map){
-    this._map_continuous('nodes', aesthetic, map);
+   this.options.network = undefined
   },
 })
 

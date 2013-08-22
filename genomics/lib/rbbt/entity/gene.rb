@@ -88,7 +88,11 @@ module Gene
 
   property :to => :array2single do |new_format|
     return self if format == new_format
-    genes = Translation.job(:tsv_translate, "", :organism => organism, :genes => self, :format => new_format).exec.chunked_values_at(self)
+    if format.nil?
+      genes = Translation.job(:tsv_translate, "", :organism => organism, :genes => self, :format => new_format).exec.chunked_values_at(self)
+    else
+      genes = Translation.job(:tsv_translate_from, "", :organism => organism, :genes => self, :source_format => format, :target_format => new_format).exec.chunked_values_at(self)
+    end
     Gene.setup(genes, new_format, organism)
     genes.extend AnnotatedArray if AnnotatedArray === self
     genes
@@ -312,7 +316,7 @@ module Gene
         end
       end
 
-      Gene.setup(interactors, "Associated Gene Name", self.organism).organism
+      Gene.setup(interactors, "Associated Gene Name", self.organism)
       
       interactors_ensembl = interactors.ensembl
 
@@ -341,7 +345,7 @@ module Gene
           if interactors2ensembl.include? symbol and not interactors2ensembl[symbol].nil?
             atom.children.remove
             interactor = interactors2ensembl[symbol]
-            atom.replace interactor.respond_to?(:link)? interactor.link(nil, nil, :html_link_extra_attrs => "title='#{literal}'") : interactor.name
+            atom.replace interactor.respond_to?(:link)? interactor.link(nil, :title => literal) : interactor.name
           end
         }
         sentence.to_s

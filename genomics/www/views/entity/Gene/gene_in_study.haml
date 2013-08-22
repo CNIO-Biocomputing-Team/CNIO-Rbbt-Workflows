@@ -7,5 +7,5 @@
 
 = action_card_render action_card do
   - Study.setup(study)
-  = fragment study.action_link("gene_in_study", "#{ entity } in #{ study }", :gene => entity.ensembl)
+  = fragment study.action_link("gene_in_study", "#{ entity } in #{ study }", :gene => entity.ensembl, :_ => rand)
 

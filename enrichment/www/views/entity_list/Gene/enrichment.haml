@@ -26,8 +26,7 @@
     - else
       Pvalues not are adjusted for multiple testing.
 
-
-  - enrichment = Enrichment.job(:enrichment, "Enrichment (#{ database }) for list: #{ list_id }", :fdr => fdr, :cutoff => cutoff, :organism => list.organism, :database => database, :list => list.ensembl.uniq, :threshold => 0.01, :background => background)
+  - enrichment = Enrichment.job(:enrichment, "Enrichment (#{ database }) for list: #{ list_id }", :fdr => fdr, :cutoff => cutoff, :organism => list.organism, :database => database, :list => list.ensembl.uniq, :threshold => 0.01, :background => background, :fix_clusters => true)
 
   - tsv = enrichment.clean.run
 

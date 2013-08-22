@@ -46,6 +46,7 @@ module Enrichment
     @@databases[database][organism] ||= begin
       file, options = Association.get_database(database)
       open_options = options.merge(:namespace => organism, :source_type => "Ensembl Gene ID", :target_type => "Ensembl Gene ID")
+      open_options = open_options.merge(:grep => Organism.blacklist_genes(organism).produce.list, :invert_grep => true)
       association = Association.open(file, open_options)
       [association, association.keys, association.key_field, association.fields.first]
     end
@@ -87,6 +88,8 @@ module Enrichment
       masked = nil
     end
 
+    database_tsv = database_tsv.to_flat
+
     database_tsv.enrichment(ensembl, database_field, :persist => (background.nil? or background.empty?), :cutoff => cutoff, :fdr => fdr, :background => background, :rename => (fix_clusters ? Enrichment::RENAMES : nil), :masked => masked).tap{|tsv| tsv.namespace = organism}
   end
   export_synchronous :enrichment
@@ -100,7 +103,8 @@ module Enrichment
   input :background, :array, "Enrichment background", nil
   input :mask_diseases, :boolean, "Mask disease related terms", true
   input :fix_clusters, :boolean, "Fixed dependence in gene clusters", true
-  task :rank_enrichment => :tsv do |database, list, organism, permutations, cutoff, fdr, background, mask_diseases, fix_clusters|
+  input :count_missing, :boolean, "Account for genes with pathway annotations that are missing in list", false
+  task :rank_enrichment => :tsv do |database, list, organism, permutations, cutoff, fdr, background, mask_diseases, fix_clusters, count_missing|
     ensembl    = Translation.job(:translate, nil, :format => "Ensembl Gene ID", :genes => list, :organism => organism).run.compact.uniq
     background = Translation.job(:translate, nil, :format => "Ensembl Gene ID", :genes => background, :organism => organism).run.compact.uniq if background and background.any?
     Gene.setup(ensembl, "Ensembl Gene ID", "Hsa")
@@ -108,10 +112,10 @@ module Enrichment
 
     database_tsv, all_db_genes, database_key_field, database_field = database_info database, organism
 
-    if database_key_field != "Ensembl Gene ID"
-      database_tsv = TSVWorkflow.job(:change_id, "Enrichment", :tsv => database_tsv, :format => "Ensembl Gene ID", :organism => organism).exec
-      all_db_genes = all_db_genes.to("Ensembl Gene ID").compact.uniq
-    end
+    #if database_key_field != "Ensembl Gene ID"
+    #  database_tsv = TSVWorkflow.job(:change_id, "Enrichment", :tsv => database_tsv, :format => "Ensembl Gene ID", :organism => organism).exec
+    #  all_db_genes = all_db_genes.to("Ensembl Gene ID").compact.uniq
+    #end
 
     if mask_diseases and not Gene == Entity.formats[database_field]
       Log.debug("Masking #{MASKED_TERMS * ", "}")
@@ -128,12 +132,20 @@ module Enrichment
       masked = nil
     end
 
-    database_tsv = database_tsv.reorder database_field
+    log :reordering, "Reordering database"
+    database_tsv.with_unnamed do
+      database_tsv.with_monitor :desc => "Reordering" do
+        database_tsv = database_tsv.reorder database_field
+      end
+    end
 
-    missing = (all_db_genes - list).length
+    missing = (all_db_genes - list).length if count_missing
 
     cutoff = cutoff.to_f
-    database_tsv.rank_enrichment(ensembl, :persist => (background.nil? or background.empty?), :cutoff => cutoff, :fdr => fdr, :background => background, :rename => (fix_clusters ? RENAMES : nil), :permutations => permutations, :persist_permutations => true, :missing => missing, :masked => masked).select("p-value"){|p| p.to_f <= cutoff}.tap{|tsv| tsv.namespace = organism}
+
+    log :enrichment, "Performing enrichment"
+    database_tsv = database_tsv.to_flat
+    database_tsv.rank_enrichment(ensembl,  :persist => (background.nil? or background.empty?), :cutoff => cutoff, :fdr => fdr, :background => background, :rename => (fix_clusters ? RENAMES : nil), :permutations => permutations, :persist_permutations => true, :missing => missing || 0, :masked => masked).select("p-value"){|p| p.to_f <= cutoff}.tap{|tsv| tsv.namespace = organism}
   end
   export_asynchronous :rank_enrichment
 end

@@ -24,6 +24,11 @@ network=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
        json2.js
       }
      }
+     controls=controls{
+      save.js
+      context_menu.js
+      placement.js
+     }
      cytoscape.js
     }
    }

@@ -1,0 +1,16 @@
+- action_card = ActionCard.new
+= action_card_render action_card do
+  %ul.ihop_sentences
+    - entity.tagged_ihop_interactions.each do |sentence|
+      %li= sentence
+
+:sass
+  ihopatom
+    color: gray
+    actionverblink
+      color: green
+    chemicalcompound
+      color: pink
+    meshlink
+      color: blue
+

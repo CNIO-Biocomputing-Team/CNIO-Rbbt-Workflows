@@ -10,6 +10,8 @@
   - genes = Gene.setup(Translation.job(:translate, gene, :genes => [gene], :organism =>organism).run, "Ensembl Gene ID", organism)
   - gene = genes.first
 
+  %p= gene.link
+
   %h4 Genotype analysis
   - overview = entity.job(:genotype_overview).run(true).path.tsv(:grep => [gene])[gene]
   - if overview.nil?

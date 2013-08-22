@@ -43,6 +43,7 @@
   - g.entities["Gene"].uniq!
   - g.entities["Sample"].uniq!
  
+  - g.add_aesthetic :nodes, :shape, :entity_type, {"Sample" => "SQUARE"}
   - g.add_aesthetic :edges, :color, :database, :lost => '#0f0', :gained => '#00f'
   - g.add_aesthetic :nodes, :borderWidth, :id, gene_score
 

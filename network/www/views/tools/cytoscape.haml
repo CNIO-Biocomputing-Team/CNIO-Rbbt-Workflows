@@ -26,12 +26,16 @@
         = action_parameters nil, {:klass => ''}, :action => '#' do
           - input :entities, :select, "Genes to add", nil, :html_options => {:class => 'favourite_lists', :type => 'All'}
 
-
       .maps
         %h5 Map aesthetic
         = action_parameters nil, {:klass => ''}, :action => '#' do
           - input :map, :select, "Select map to use", nil, :html_options => {:class => 'favourite_maps', :type => 'All'}
           - input :aesthetic, :select, "Aesthetic to map to", :opacity, :select_options => [:opacity, :borderWidth]
+
+      .maps
+        %h5 Save selected
+        - graph.entities.each do |type, list|
+          =  type
 
     %dt Cytoscape
     %dd
@@ -90,208 +94,17 @@
 
         });
 
-        ///////////////////////////////////
-        //{{{ CONTEXT MENU
+        require_js('/js/controls/context_menu', function(){
+          cytoscape_context_menu(tool)
+        })
 
-        tool.cytoscape_tool('add_context_menu_item', "Remove selected", "none", function (evt) {
-          var vis = tool.cytoscape_tool('vis');
-          var removed_nodes = vis.selected('nodes')
-          $.map(removed_nodes, function(node){
-            tool.cytoscape_tool('remove_entities', node.data.entity_type, [node.data.id])
-          })
-          tool.cytoscape_tool('draw');
-        });
+        require_js('/js/controls/placement', function(){
+          cytoscape_placement(tool)
+        })
 
-        tool.cytoscape_tool('add_context_menu_item', "Remove", "nodes", function (evt) {
-          var vis = tool.cytoscape_tool('vis');
-          var node = evt.target;
-          tool.cytoscape_tool('remove_entities', node.data.entity_type, [node.data.id])
-          tool.cytoscape_tool('draw');
-        });
-
-        tool.cytoscape_tool('add_context_menu_item', "Select first neighbors", "nodes", function (evt) {
-          var vis = tool.cytoscape_tool('vis');
-          var rootNode = evt.target;
-          var fNeighbors = vis.firstNeighbors([rootNode]);
-          var neighborNodes = fNeighbors.neighbors;
-          vis.select([rootNode]).select(neighborNodes);
-        });
-
-
-        //{{{ PLACEMENT
-
-        tool.cytoscape_tool('add_context_menu_item', "Pull first neighbors", "nodes", function (evt) {
-          var vis = tool.cytoscape_tool('vis');
-          var rootNode = evt.target;
-          var all_nodes = vis.nodes();
-          var fNeighbors = vis.firstNeighbors([rootNode]);
-          var neighborNodes = fNeighbors.neighbors;
-          var zoom = vis.zoom();
-          var root_x = rootNode.x / zoom
-          var root_y = rootNode.y / zoom
-          var dist = 100
-          var points = []
-          var neighborNode_ids = $.map(neighborNodes, function(node){return(node.data.id)})
-          $.each(all_nodes, function(){
-            var node = this
-            if ($.inArray(node.data.id, neighborNode_ids) >= 0){
-              var node_x = node.x / zoom
-              var node_y = node.y / zoom
-              var dist_x = node_x - root_x
-              var dist_y = node_y - root_y
-              var length = Math.sqrt(Math.pow(dist_x,2) + Math.pow(dist_y, 2))
-              node_x = root_x + (dist_x / length * ((dist + Math.random() * dist)))
-              node_y = root_y + (dist_y / length * ((dist + Math.random() * dist)))
-              node.x = node_x * zoom
-              node.y = node_y * zoom
-            }
-            points.push({id:node.data.id, x: node.x / zoom, y: node.y / zoom})
-          })
-          tool.cytoscape_tool('set_positions', points)
-          tool.cytoscape_tool('draw')
-        });
-
-        tool.cytoscape_tool('add_context_menu_item', "Surround with first neighbors", "nodes", function (evt) {
-          var vis = tool.cytoscape_tool('vis');
-          var rootNode = evt.target;
-          var all_nodes = vis.nodes();
-          var fNeighbors = vis.firstNeighbors([rootNode]);
-          var neighborNodes = fNeighbors.neighbors;
-          var zoom = vis.zoom();
-          var root_x = rootNode.x / zoom
-          var root_y = rootNode.y / zoom
-          var dist = 20
-          var points = []
-          var neighborNode_ids = $.map(neighborNodes, function(node){return(node.data.id)})
-          var ang = 0
-          var num = 0
-          var circum = 0
-
-          $.each(all_nodes, function(){
-            var node = this
-            if ($.inArray(node.data.id, neighborNode_ids) >= 0){
-              num += 1;
-              if (undefined !== node.data.size){
-                circum += tool.cytoscape_tool('get_options').visualStyle.nodes.size.defaultValue + 5
-              }else{
-                circum += parseInt(node.data.size) + 5
-              }
-            }
-          })
-
-          dist += circum / (2 * Math.PI)
-
-          if (dist < 50){ dist = 50}
-
-          var ang_inc = 1.0 / num
-          $.each(all_nodes, function(){
-            var node = this
-            if ($.inArray(node.data.id, neighborNode_ids) >= 0){
-              ang = ang + ang_inc
-              var node_x = root_x + (dist * Math.sin(ang * 2 * Math.PI))
-              var node_y = root_y + (dist * Math.cos(ang * 2 * Math.PI))
-              node.x = node_x * zoom
-              node.y = node_y * zoom
-            }
-            points.push({id:node.data.id, x: node.x / zoom, y: node.y / zoom})
-          })
-          tool.cytoscape_tool('set_positions', points)
-          tool.cytoscape_tool('draw')
-        });
-
-
-
-        tool.cytoscape_tool('add_context_menu_item', "Horizontally place selected", "none", function (evt) {
-          var vis = tool.cytoscape_tool('vis');
-          var all_nodes = vis.nodes();
-          var selected = vis.selected('nodes')
-          var zoom = vis.zoom();
-          var root_x = evt.mouseX / zoom
-          var root_y = evt.mouseY / zoom
-          var dist = 20
-          var points = []
-          var selected_ids = $.map(selected, function(node){return(node.data.id)})
-          var ang = 0
-          var num = 0
-          var l = 0
-          $.each(all_nodes, function(){
-            var node = this
-            if ($.inArray(node.data.id, selected_ids) >= 0){
-              num += 1;
-              if (undefined !== node.data.size){
-                l += tool.cytoscape_tool('get_options').visualStyle.nodes.size.defaultValue * 2
-              }else{
-                l += parseInt(node.data.size)  * 2
-              }
-            }
-          })
-
-          var pos = root_x - l / 2
-          var pos_inc = l / num
-
-          $.each(all_nodes, function(){
-            var node = this
-            if ($.inArray(node.data.id, selected_ids) >= 0){
-              pos += pos_inc
-              var node_x = root_x + pos 
-              var node_y = root_y
-              node.x = node_x * zoom
-              node.y = node_y * zoom
-            }
-            points.push({id:node.data.id, x: node.x / zoom, y: node.y / zoom})
-          })
-          tool.cytoscape_tool('set_positions', points)
-          tool.cytoscape_tool('draw')
-        });
-
-
- 
-        tool.cytoscape_tool('add_context_menu_item', "Vertically place selected", "none", function (evt) {
-          var vis = tool.cytoscape_tool('vis');
-          var all_nodes = vis.nodes();
-          var selected = vis.selected('nodes')
-          var zoom = vis.zoom();
-          var root_x = evt.mouseX / zoom
-          var root_y = evt.mouseY / zoom
-          var dist = 20
-          var points = []
-          var selected_ids = $.map(selected, function(node){return(node.data.id)})
-          var ang = 0
-          var num = 0
-          var l = 0
-          $.each(all_nodes, function(){
-            var node = this
-            if ($.inArray(node.data.id, selected_ids) >= 0){
-              num += 1;
-              if (undefined !== node.data.size){
-                l += tool.cytoscape_tool('get_options').visualStyle.nodes.size.defaultValue * 2
-              }else{
-                l += parseInt(node.data.size)  * 2
-              }
-            }
-          })
-
-          var pos = root_y - l / 2
-          var pos_inc = l / num
-
-          $.each(all_nodes, function(){
-            var node = this
-            if ($.inArray(node.data.id, selected_ids) >= 0){
-              pos += pos_inc
-              var node_x = root_x 
-              var node_y = root_y + pos
-              node.x = node_x * zoom
-              node.y = node_y * zoom
-            }
-            points.push({id:node.data.id, x: node.x / zoom, y: node.y / zoom})
-          })
-          tool.cytoscape_tool('set_positions', points)
-          tool.cytoscape_tool('draw')
-        });
-
-
-        ///////////////////////////////////
-        //{{{ ENTITY INIT
+        require_js('/js/controls/save', function(){
+          cytoscape_save(tool)
+        })
 
 
         ///////////////////////////////////
@@ -376,7 +189,7 @@
 
           var map = entity_map(type, column, map_id);
 
-          tool.cytoscape_tool('add_map', aesthetic, map)
+          tool.cytoscape_tool('aesthetic', 'nodes', aesthetic, map)
 
           return false;
         })

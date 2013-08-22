@@ -12,6 +12,11 @@ TextMining=/$PWD filter="*.rb *.genotype *.haml *.sass *.js *.txt *.tsv" {
  }
  www=www{
   views=views{
+   entity=entity{
+    Gene=Gene{
+     iHOP.haml
+    }
+   }
    entity_list=entity_list{
     PMID.haml
     PMID=PMID{
