@@ -74,7 +74,7 @@
           - tsv = TSV.setup(entity.gene.COSMIC_rsids, :key_field => "Mutation ID", :fields => [], :type => :double)
           - tsv.attach CMD.cmd('grep -v "_ENST"', :in => COSMIC.mutations.open, :pipe => true), :fields => ["Genomic Mutation", "Primary site", "Site subtype", "Primary histology", "Histology subtype"]
 
-          - mutations = GenomicMutation.setup(tsv.column("Genomic Mutation").values.flatten, "COSMIC mutations over #{entity.gene}", "Hsa/jun2011", true)
+          - mutations = GenomicMutation.setup(tsv.column("Genomic Mutation").values.flatten, "COSMIC mutations over #{entity.gene}", "Hsa/jun2011", false)
           - mutation_isoforms = Misc.process_to_hash(mutations){|list| list.mutated_isoforms}
           - tsv.add_field "Change" do |key, values|
             - mutation = values[0].first

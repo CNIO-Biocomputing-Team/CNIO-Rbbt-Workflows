@@ -44,7 +44,6 @@ structure=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
    }
    entity=entity{
     Protein.haml
-    Protein2.haml
    }
   }
  }

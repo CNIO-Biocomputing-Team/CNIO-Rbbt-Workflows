@@ -7,10 +7,12 @@
   - header "Mutation ratio", "NumericValue"
   - header "Mutations / Protein size", "NumericValue"
   - header "Mean mut. distance", "NumericValue"
-  - header "Hotspot %", "NumericValue"
+  - header "Recurrent %", "NumericValue"
+  - header "Hotspot statistic", "NumericValue"
   = table :table_id => "Details for #{ list_id }" do
-    - tsv = TSV.setup({}, :key_field => "Ensembl Gene ID", :fields => ["COSMIC mutations", "Mutations / Protein size", "Mean mut. distance", "Hotspot %"], :type => :list, :namespace => list.organism)
+    - tsv = TSV.setup({}, :key_field => "Ensembl Gene ID", :fields => ["COSMIC mutations", "Mutations / Protein size", "Mean mut. distance", "Recurrent %", "Hotspot statistic"], :type => :list, :namespace => list.organism)
     - list.ensembl.compact.each do |gene|
+      - next if gene.transcripts.nil? or gene.transcripts.empty?
       - protein = gene.proteins.sort_by{|s| s.sequence.to_s.length}.last
 
       - cosmic_mutations = gene.COSMIC_mutations.compact.select_by(:relevant?)
@@ -22,11 +24,15 @@
         - mean_mut_distance = Misc.mean distances
         - protein_size = protein.sequence.length
         - hotspot = distances.inject(0){|acc,e|  acc += 1 if e == 0; acc}.to_f / distances.length
+        - unif = (0..1000).to_a.collect{ rand }
+        - scaled_positions = positions.collect{|p| p.to_f / protein_size}
+        - hotspot_stat = RSRuby.instance.ks_test(scaled_positions, unif)["p.value"]
       - else
-        - protein_size = Misc.max(gene.transcripts.sequence.collect{|s| s.length}) / 3
+        - protein_size = Misc.max(gene.transcripts.sequence.collect{|s| s.length}) / 3 if gene.transcripts and gene.transcripts.any?
         - mean_mut_distance = nil
         - hotspot = 0
+        - hotspot_stat = 1
 
-      - tsv[gene] = [cosmic_mutations.length, "%4.g" % (cosmic_mutations.length.to_f / protein_size), "%.3g" % (mean_mut_distance || -1), "%.3g" % (hotspot * 100)]
+      - tsv[gene] = [cosmic_mutations.length, "%4.g" % (cosmic_mutations.length.to_f / protein_size ), "%.3g" % (mean_mut_distance || -1), "%.3g" % (hotspot * 100), hotspot_stat]
     - tsv
 

@@ -10,17 +10,17 @@
     = entity.long_name
 
 - entity_card.meta do
+  %dl
+
+    %dt Gene in Ensembl: 
+    %dd
+      %a(href="http://#{Misc.ensembl_server(entity.organism)}/#{Organism.scientific_name(entity.organism).sub(" ","_")}/Gene/Summary?g=#{entity.to "Ensembl Gene ID"}")= entity.to "Ensembl Gene ID"
+    %dt Gene in Entrez:
+
+    %dd
+      %a(href="http://www.ncbi.nlm.nih.gov/gene/#{entity.to "Entrez Gene ID"}")= entity.to "Entrez Gene ID"
+
   = fragment do 
-    %dl
-
-      %dt Gene in Ensembl: 
-      %dd
-        %a(href="http://#{Misc.ensembl_server(entity.organism)}/#{Organism.scientific_name(entity.organism).sub(" ","_")}/Gene/Summary?g=#{entity.to "Ensembl Gene ID"}")= entity.to "Ensembl Gene ID"
-      %dt Gene in Entrez:
-
-      %dd
-        %a(href="http://www.ncbi.nlm.nih.gov/gene/#{entity.to "Entrez Gene ID"}")= entity.to "Entrez Gene ID"
-
     %dl
 
       %dt Chromosome
@@ -49,6 +49,35 @@
 
         - else
           No transcript found for this gene
+
+  = fragment do 
+    - cosmic_mutations = entity.COSMIC_mutations.compact.select_by(:relevant?)
+    - protein = entity.transcripts.protein.flatten.compact.sort_by{|p| (p.sequence ||[]).length}.last if entity.proteins and entity.proteins.any?
+    - protein_mutations = cosmic_mutations.mutated_isoforms.compact.flatten.select{|mi| mi.protein == protein} if cosmic_mutations
+    - if protein and protein_mutations and protein_mutations.any?
+      - positions = protein_mutations.position.sort.sort 
+      - distances = positions[1..-1].zip(positions).collect{|p1,p2| p1 - p2}
+      - mean_mut_distance = Misc.mean distances
+      - protein_size = protein.sequence.length
+      - hotspot = distances.inject(0){|acc,e|  acc += 1 if e == 0; acc}.to_f / distances.length
+      - unif = (0..1000).to_a.collect{ rand }
+      - scaled_positions = positions.collect{|p| p.to_f / protein_size}
+      - hotspot_stat = RSRuby.instance.ks_test(scaled_positions, unif)["p.value"]
+      %dl
+        %dt COSMIC Mutations
+        %dd 
+          = cosmic_mutations.list_link :length, "COSMIC mutations (relevant) over #{entity.name || entity}"
+
+        %dt Mutations / Protein size
+        %dd 
+          = "%.3g" % (cosmic_mutations.length.to_f / protein_size)
+
+        %dt Recurrence %
+        %dd== #{"%.3g" % (hotspot * 100)} %
+
+        %dt Hotspot statistic
+        %dd= "%.5g" % hotspot_stat
+
 
 - list_container = ListContainer.new
 
