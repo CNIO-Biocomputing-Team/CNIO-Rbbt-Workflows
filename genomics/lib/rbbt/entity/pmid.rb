@@ -75,4 +75,40 @@ module PMID
     end
   end
 
+  property :bibtex do
+    keys = [:author] + PubMed::Article::XML_KEYS.collect{|p| p.first } - [:bibentry]
+    bibtex = "@article{#{bibentry},\n"
+
+    keys.each do |key|
+      next if self.send(key).nil?
+
+      case key
+
+      when :title
+        bibtex += "  title = { #{ PubMed::Article.escape_title title } },\n"
+
+      when :issue
+        bibtex += "  number = { #{ issue } },\n"
+
+      else
+        bibtex += "  #{ key } = { #{ self.send(key) } },\n"
+      end
+
+    end
+
+    bibtex += "  fulltext = { #{ pdf_url } },\n" if pdf_url
+    bibtex += "  pmid = { #{ pmid } }\n}"
+
+
+    bibtex
+  end
+
+  property :bibentry do
+    bibentry = nil
+    author = article.author.split(' and ').first.strip
+    lastname, forename = author.split(',')
+    bibentry ||= [lastname, (year || "NOYEAR"), (title || "NOTITLE").scan(/\w+/)[0]] * ""
+    bibentry.downcase
+  end
+
 end

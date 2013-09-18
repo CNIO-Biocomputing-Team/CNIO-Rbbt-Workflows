@@ -7,7 +7,7 @@
   - g = Graph.new($knowledge_base)
   - g.entities["Gene"] = list
 
-  - if list.length < 1_000
+  - if list.length < 1_200
     = tool :cytoscape, :graph => g, :id => Misc.snake_case(list_id)
 
 = entity_list_card_render entity_list_card

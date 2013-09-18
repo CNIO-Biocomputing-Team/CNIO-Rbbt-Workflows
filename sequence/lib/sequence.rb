@@ -239,7 +239,7 @@ module Sequence
       [position, list]
     end
 
-    tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Ensembl Transcrip ID:Offset:Strand"], :type => :flat, :namespace => organism)
+    tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Ensembl Transcrip ID:Offset:Strand"], :type => :flat, :namespace => organism, :unnamed => true)
     
     exon_transcript_offsets.unnamed = false
     exon_offsets.each do |position, list|
@@ -387,7 +387,7 @@ module Sequence
     end
 
     log :loading, "Loading results"
-    tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Reference Allele"], :type => :single, :namespace => organism)
+    tsv = TSV.setup({}, :key_field => "Genomic Position", :fields => ["Reference Allele"], :type => :single, :namespace => organism, :unnamed => true)
     positions.collect do |position|
       chr, pos = position.split(/[\s:\t]/).values_at 0, 1
       chr.sub!(/chr/,'')
@@ -406,9 +406,9 @@ module Sequence
   input :mutations, :array, "Mutation Chr:Position:Mut (e.g. 19:54646887:A). Separator can be ':', space or tab. Extra fields are ignored"
   def self.mutated_isoforms_for_genomic_mutations(organism, watson, mutations)
     transcript_offsets = transcript_offsets_for_genomic_positions(organism, mutations)
-    transcript_to_protein = Organism.transcripts(organism).tsv(:persist => true, :fields => ["Ensembl Protein ID"], :type => :single)
+    transcript_to_protein = Organism.transcripts(organism).tsv(:persist => true, :fields => ["Ensembl Protein ID"], :type => :single, :unnamed => true)
 
-    mutated_isoforms = TSV.setup({}, :type => :flat, :key_field => "Genomic Mutation", :fields => ["Mutated Isoform"], :namespace => organism)
+    mutated_isoforms = TSV.setup({}, :type => :flat, :key_field => "Genomic Mutation", :fields => ["Mutated Isoform"], :namespace => organism, :unnamed => true)
 
     transcript_offsets.each do |mutation, list|
       chr, pos, mut_str = mutation.split ":"
@@ -580,7 +580,7 @@ module Sequence
       chr_genes[chr] = genes_at_chr_ranges(organism, chr, list)
     end
 
-    tsv = TSV.setup({}, :key_field => "Genomic Range", :fields => ["Ensembl Gene ID"], :type => :flat, :namespace => organism)
+    tsv = TSV.setup({}, :key_field => "Genomic Range", :fields => ["Ensembl Gene ID"], :type => :flat, :namespace => organism, :unnamed => true)
     ranges.collect do |range|
       chr, s, e = range.split(":").values_at 0, 1, 2
       chr.sub!(/chr/,'')
