@@ -10,7 +10,7 @@
   - mutated_isoforms = Misc.process_to_hash(mutations){|mutations| mutations.mutated_isoforms.collect{|mis| (mis || []).select{|mi| mi.protein}.sort_by{|mi| mi.protein.sequence.length}.first} }
   - all_mutated_isoforms = MutatedIsoform.setup(mutated_isoforms.values.compact.flatten.uniq, organism)
 
-  - header "InterPro Domain", "InterProDomain"
+  - header "InterPro Domain", "InterProDomain", {:organism => list.organism}
   - header "Counts", "NumericValue"
   = table do
     - tsv = TSV.setup(Misc.counts(all_mutated_isoforms.affected_interpro_domains.uniq.flatten), :key_field => "InterPro Domain", :fields => ["Counts"])

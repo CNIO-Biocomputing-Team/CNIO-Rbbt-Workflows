@@ -81,20 +81,20 @@
 
 - list_container = ListContainer.new
 
-- list_container.add "GeneRIF Articles for #{entity.name}" do 
+- list_container.add "GeneRIF Articles" do 
   - entity.articles
 
-- list_container.add "PINA Interactors for #{entity.name}", entity.pina_interactors
-- list_container.add "String Interactors for #{entity.name}", entity.string_interactors
-- list_container.add "Transcription Targets for #{entity.name}", entity.transcription_targets
-- list_container.add "Transcription Regulators for #{entity.name}", entity.transcription_regulators
-- list_container.add "Kegg Pathways for #{entity.name}", entity.to_kegg.nil? ? [] : entity.to_kegg.kegg_pathways
-- list_container.add "NCI Nature Pathways for #{entity.name}", entity.nature_pathways
-- list_container.add "GO BP Terms for #{entity.name}", entity.go_bp_terms
-- list_container.add "GO CC Terms for #{entity.name}", entity.go_cc_terms
-- list_container.add "GO MF Terms for #{entity.name}", entity.go_mf_terms
-- list_container.add "Pfam Domains for #{entity.name}", entity.pfam_domains 
-- list_container.add "InterPro Domains for #{entity.name}", InterProDomain.setup(entity.proteins.interpro_domains.compact.flatten, entity.organism) if entity.proteins.any?
+- list_container.add "PINA Interactors of #{entity.name || entity}", entity.pina_interactors, "PINA Interactors"
+- list_container.add "String Interactors of #{entity.name || entity}", entity.string_interactors, "String Interactors"
+- list_container.add "Transcription Targets of #{entity.name || entity}", entity.transcription_targets, "Transcription Targets"
+- list_container.add "Transcription Regulators of #{entity.name || entity}", entity.transcription_regulators, "Transcription Regulators"
+- list_container.add "Kegg Pathways for #{entity.name || entity}", entity.to_kegg.nil? ? [] : entity.to_kegg.kegg_pathways, "Kegg Pathways"
+- list_container.add "NCI Nature Pathways for #{entity.name || entity}", entity.nature_pathways, "NCI Nature Pathways"
+- list_container.add "GO BP Terms for #{entity.name || entity}", entity.go_bp_terms, "GO BP Terms"
+- list_container.add "GO CC Terms for #{entity.name || entity}", entity.go_cc_terms, "GO CC Terms"
+- list_container.add "GO MF Terms for #{entity.name || entity}", entity.go_mf_terms, "GO MF Terms"
+- list_container.add "Pfam Domains of #{entity.name || entity}", entity.pfam_domains , "Pfam Domains"
+- list_container.add "InterPro Domains of #{entity.name || entity}", InterProDomain.setup(entity.proteins.interpro_domains.compact.flatten, entity.organism), "InterPro Domains" if entity.proteins.any?
 
 - entity_card.list_container = list_container
 

@@ -1,4 +1,3 @@
-require_js("/js/jquery-ui/jquery-ui.js")
 $.widget("rbbt.isoform_svg_tool", {
 
   options: {},

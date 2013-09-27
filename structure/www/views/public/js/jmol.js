@@ -1,13 +1,13 @@
 var jmol_tools = [];
 
 require_js("/js/jquery-jmol/jmol-accent.js")
-require_js("/js/jquery-ui/jquery-ui.js")
 require_js("/js/jquery-jmol/jquery.jmol.js")
 
 $.widget("rbbt.jmol_tool", {
 
   options: {
-    appletUrl : '/js/jmol',
+    appletUrl : '/js-find/jmol',
+    applet_url : '/js-find/jmol',
     width: 640,
     height: 480,
     menuUrl : '/jmol/jmol.mnu',

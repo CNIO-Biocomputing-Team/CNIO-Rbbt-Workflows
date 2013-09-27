@@ -11,7 +11,7 @@
 - if entity.respond_to? :genes
   - genes = entity.genes
   - list_container = ListContainer.new
-  - list_container.add "Genes for #{[entity.base_type, name] * ": "}", genes
+  - list_container.add "Genes for #{entity.base_type} #{name}", genes, "Genes"
   - entity_card.list_container = list_container
 
 - entity_card.action_controller = default_action_controller entity

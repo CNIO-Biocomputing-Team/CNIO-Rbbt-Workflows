@@ -59,12 +59,11 @@
             for (var i in target.data) {
               var variable_name = i;
               var variable_value = target.data[i];
-              console.log( "event.target.data." + variable_name + " = " + variable_value );
             }
             var url = target.data.url;
 
-            open_url_in_reveal('modal1', url, function(){
-              $('#modal1').find(' > .header > .title').attr('entity', target.data.id).attr('type', target.data.entity_type)
+            $('#modal').modal('show_url', url, undefined, function(){
+              $('#modal').find(' > .header > .title').attr('entity', target.data.id).attr('type', target.data.entity_type)
             })
             return(false)
           },
@@ -85,9 +84,7 @@
               dl.append($('<dt>').html(key))
               dl.append($('<dd>').html(value))
             }
-
-            show_reveal('modal1', dl)
-            $('#modal1').foundation('reveal', 'open')
+            $('#modal').modal('show', dl)
  
             return(false)
           }

@@ -13,7 +13,7 @@
       
       - protein = gene.proteins.sort_by{|s| s.sequence.to_s.length}.last
 
-      - protein_size = protein.sequence.length if protein
+      - protein_size = protein.sequence.length if protein and protein.sequence
 
       - tsv[gene] = [gene.biotype, gene.chromosome, gene.chr_range.begin, gene.chr_range.end, gene.strand, gene.chr_range.end - gene.chr_range.begin, protein_size]
     - tsv

@@ -169,7 +169,7 @@ module Structure
   input :uniprot, :string, "UniPro/SwissProt Accession"
   task :i3d_protein_pdbs => :array do |uniprot|
     begin
-      CMD.cmd("cat '#{Interctome3d.proteins_tsv.produce.find}' | grep '#{ uniprot}'").read.split("\n").collect{|l| l.split("\t").last.split("|")}.flatten
+      CMD.cmd("cat '#{Interactome3d.proteins_tsv.produce.find}' | grep '#{ uniprot}'").read.split("\n").collect{|l| l.split("\t").last.split("|")}.flatten
     rescue
       Log.debug("Error in grep: #{$!.message}")
       []
@@ -179,7 +179,7 @@ module Structure
   input :uniprot, :string, "UniPro/SwissProt Accession"
   task :i3d_interaction_pdbs => :array do |uniprot|
     begin
-      CMD.cmd("cat '#{Interctome3d.interactions_tsv.produce.find}' | grep '#{ uniprot}'").read.split("\n").collect{|l| l.split("\t").last.split("|")}.flatten
+      CMD.cmd("cat '#{Interactome3d.interactions_tsv.produce.find}' | grep '#{ uniprot}'").read.split("\n").collect{|l| l.split("\t").last.split("|")}.flatten
     rescue
       Log.debug("Error in grep: #{$!.message}")
       []

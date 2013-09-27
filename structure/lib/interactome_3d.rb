@@ -1,6 +1,6 @@
 require 'rbbt'
 
-module Interctome3d
+module Interactome3d
   extend Resource
   self.subdir = 'share/databases/interactome3d'
 
@@ -58,8 +58,8 @@ module Interctome3d
 end
 
 if __FILE__ == $0
-  Interctome3d.proteins_tsv.produce
-  Interctome3d.proteins.produce
-  Interctome3d.interactions_tsv.produce
-  Interctome3d.interactions.produce
+  Interactome3d.proteins_tsv.produce
+  Interactome3d.proteins.produce
+  Interactome3d.interactions_tsv.produce
+  Interactome3d.interactions.produce
 end

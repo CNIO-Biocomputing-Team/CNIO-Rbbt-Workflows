@@ -1,12 +1,11 @@
 require_js('/js/cytoscape/src/AC_OETags.js');
-require_js("/js/jquery-ui/jquery-ui.js");
 require_js('/js/cytoscape/src/cytoscapeweb.js');
 
 $.widget("rbbt.cytoscape_tool", {
 
  options: {
   // where you have the Cytoscape Web SWF
-  swfPath: "/js/cytoscape/swf/CytoscapeWeb",
+  swfPath: "/js-find/cytoscape/swf/CytoscapeWeb",
   flashInstallerPath: "/js/cytoscape/swf/playerProductInstall",
   knowledgebase: undefined,
   entities: {},
@@ -131,12 +130,10 @@ $.widget("rbbt.cytoscape_tool", {
   },
 
   _get_node_schema: function(){
-    //return $.ajax({method: 'GET', url: '/tool/cytoscape/node_schema', async: false}).responseJSON;
     return JSON.parse(get_ajax({method: 'GET', url: '/tool/cytoscape/node_schema', async: false}));
   },
 
   _get_edge_schema: function(){
-    //return $.ajax({method: 'GET', url: '/tool/cytoscape/edge_schema', async: false}).responseJSON;
     return JSON.parse(get_ajax({method: 'GET', url: '/tool/cytoscape/edge_schema', async: false}));
   },
 

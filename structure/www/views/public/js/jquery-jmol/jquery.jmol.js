@@ -198,11 +198,11 @@
 		/**
 		* Unsigned applet file
 		*/
-		_appletFile = 'JmolApplet0.jar', 
+		_appletFile = '/js-find/jmol/JmolApplet0.jar', 
 		/**
 		* Signed applet file
 		*/
-		_appletFileSigned = 'JmolAppletSigned0.jar', 
+		_appletFileSigned = '/js-find/jmol/JmolAppletSigned0.jar', 
 		/**
 		* HTML template for Jmol applet
 		*/
@@ -397,6 +397,7 @@
 			}
 			
 			var html = _htmlTemplate.replace('%add_attr%', add_attr);
+            console.log(options)
 			html = html.replace('%add_param%', add_param);
 			html = html.replace('%sync_id%', ("" + Math.random()).substring(3));
 			html = html.replace('%id%', id);
@@ -637,4 +638,4 @@
 		jmol : jQueryJmolPlugin.callbacks
 	});
 	
-})(Foundation.zj);
+})($);
