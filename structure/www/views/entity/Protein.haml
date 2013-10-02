@@ -17,7 +17,7 @@
   %dl.tabs
     %dt Controls
     %dd
-      .controls.column.small-12
+      .controls
         %ul.controls
           %li
             %a.clear(href="#") clear
@@ -29,14 +29,14 @@
 
     %dt SVG
     %dd
-      .svg.column.small-12
+      .svg
         = tool :isoform_svg, :protein => entity, :sequence => entity.sequence, :height => 200
-      .sequence.column.small-12
+      .sequence
         = tool :sequence, :protein => entity, :sequence => entity.sequence, :svg => '.isoform_svg_tool svg', :height => 200
 
     %dt JMOL
     %dd
-      .jmol.column.small-12
+      .jmol
         = tool :jmol, :protein => entity
 
     %dt Appris

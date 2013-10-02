@@ -137,8 +137,8 @@ $.widget("rbbt.cytoscape_tool", {
     return JSON.parse(get_ajax({method: 'GET', url: '/tool/cytoscape/edge_schema', async: false}));
   },
 
-  _get_network: function(databases){
-    return JSON.parse(get_ajax({method: 'POST', url: '/tool/cytoscape/get_network', data: $.extend({}, this.options.entity_options, {knowledgebase: this.options.knowledgebase, databases: databases.join("|"), entities: JSON.stringify(this.options.entities), entity_options: JSON.stringify(this.options.entity_options), _format: 'json'}), async: false}));
+  _get_network: function(databases, complete){
+    return get_ajax({method: 'POST', url: '/tool/cytoscape/get_network', data: $.extend({}, this.options.entity_options, {knowledgebase: this.options.knowledgebase, databases: databases.join("|"), entities: JSON.stringify(this.options.entities), entity_options: JSON.stringify(this.options.entity_options), _format: 'json'}), async: false}, complete);
   },
 
   _nodes: function(){
@@ -176,27 +176,50 @@ $.widget("rbbt.cytoscape_tool", {
     return all_edges;
   },
 
-  _network: function(){
-      if (undefined !== this.options.network){ 
-          return this.options.network
-      }
+  //_network: function(){
+  // if (undefined !== this.options.network){ 
+  //  return this.options.network;
+  // }
 
-    this.options.init = false
-    var network = this._get_network(this.options.databases)
-    this.options.network = network
-    return network;
+  // this.options.init = false
+  // var network = this._get_network(this.options.databases)
+  // this.options.network = network
+  // return network;
+  //},
+
+  ////  HIGH LEVEL
+ 
+  //draw: function(){
+  // var config = {network: this._network(), visualStyle: this.options.visualStyle}
+  // if (undefined !== this.options.points){
+  //   var points = array_values(this.options.points);
+  //   config.layout = {name:"Preset", options:{fitToScreen: true, points: points}}
+  // }
+  // this._vis().draw(config)
+  // this._update_events()
+  //},
+ 
+  set_points: function(points){
+   this.options.points = points
   },
 
-  //  HIGH LEVEL
- 
   draw: function(){
-   var config = {network: this._network(), visualStyle: this.options.visualStyle}
-   if (undefined !== this.options.points){
-     var points = array_values(this.options.points);
+   var tool = this;
+   this._get_network(this.options.databases, function(network){
+    tool.options.init = false
+    tool.options.network = network
+
+    var config = {network: network, visualStyle: tool.options.visualStyle}
+
+    if (undefined !== tool.options.points){
+     var points = array_values(tool.options.points);
      config.layout = {name:"Preset", options:{fitToScreen: true, points: points}}
-   }
-   this._vis().draw(config)
-   this._update_events()
+    }
+
+    console.log(config)
+    tool._vis().draw(config)
+    tool._update_events()
+   })
   },
  
   set_points: function(points){

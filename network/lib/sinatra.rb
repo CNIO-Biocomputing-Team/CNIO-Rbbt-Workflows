@@ -119,6 +119,7 @@ post '/tool/cytoscape/get_network' do
 
   g.entities = JSON.parse(entity_json)
 
+  content_type "application/json"
   halt 200, g.network().to_json
 end
 
