@@ -19,6 +19,12 @@ class Graph
       @knowledge_base.association_sources
   end
 
+  def add(entities)
+    entity_type = entities.annotation_types.select{|t| Entity === t}.last
+    @entities[entity_type] ||= []
+    @entities[entity_type].concat entities
+  end
+
   def entity_options(type = nil)
     return {} if @knowledge_base.nil?
     if type.nil?
@@ -60,11 +66,5 @@ class Graph
 
   def add_aesthetic(elem, aesthetic, feature, map = nil)
     @aesthetics[elem][aesthetic] = {:feature => feature, :map => map}
-  end
-
-  class M
-    attr_accessor :entities, :connections
-    def initialize(entities, connections)
-    end
   end
 end

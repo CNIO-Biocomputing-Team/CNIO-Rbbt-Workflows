@@ -141,6 +141,10 @@ $.widget("rbbt.cytoscape_tool", {
     return get_ajax({method: 'POST', url: '/tool/cytoscape/get_network', data: $.extend({}, this.options.entity_options, {knowledgebase: this.options.knowledgebase, databases: databases.join("|"), entities: JSON.stringify(this.options.entities), entity_options: JSON.stringify(this.options.entity_options), _format: 'json'}), async: false}, complete);
   },
 
+  _get_neighbours: function(database, entities, complete){
+    return get_ajax({method: 'POST', url: '/tool/cytoscape/get_neighbours', data: $.extend({}, this.options.entity_options, {knowledgebase: this.options.knowledgebase, database: database, entities: JSON.stringify(entities), _format: 'json'}), async: false}, complete);
+  },
+
   _nodes: function(){
     var all_nodes = [];
 
@@ -216,7 +220,6 @@ $.widget("rbbt.cytoscape_tool", {
      config.layout = {name:"Preset", options:{fitToScreen: true, points: points}}
     }
 
-    console.log(config)
     tool._vis().draw(config)
     tool._update_events()
    })
@@ -254,12 +257,21 @@ $.widget("rbbt.cytoscape_tool", {
   },
 
   add_entities: function(type, entities){
-    this.options.network = undefined
     if (undefined === this.options.entities[type]){
       this.options.entities[type] = entities;
     }else{
       this.options.entities[type] = $.unique(this.options.entities[type].concat(entities));
     }
+  },
+
+  add_neighbours: function(database){
+    var tool = this
+    this._get_neighbours(database, this.options.entities, function(info){
+      var type = info.type
+      var entities = info.entities
+      tool.add_entities(type, entities)
+      tool.draw()
+    })
   },
 
   remove_entities: function(type, entities){
@@ -342,7 +354,6 @@ $.widget("rbbt.cytoscape_tool", {
         var val = tool._elem_feature(elem, feature)
         map[id] = val
       })
-      feature = "id"
     }
 
     var elem_codes = $.map(elems, function(elem){return(tool._elem_feature(elem, feature))})
@@ -394,6 +405,7 @@ $.widget("rbbt.cytoscape_tool", {
 
   aesthetic: function(elem, aesthetic, map, feature){
    var type = undefined;
+   if (undefined === feature){ feature = 'id' }
    if (undefined !== this.options.visualStyle[elem][aesthetic].continuousMapper) type = 'continuous'
    if (undefined !== this.options.visualStyle[elem][aesthetic].discreteMapper) type = 'discrete'
    if (undefined !== this.options.visualStyle[elem][aesthetic].passthroughMapper) type = 'passthrough'

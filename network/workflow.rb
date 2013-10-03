@@ -4,3 +4,4 @@ require 'rbbt/workflow'
 module Network
   extend Workflow
 end
+

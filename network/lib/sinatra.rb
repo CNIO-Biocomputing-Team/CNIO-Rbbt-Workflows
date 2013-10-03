@@ -1,4 +1,3 @@
-require 'rbbt/rest/web_tool'
 require 'rbbt/sources/pina'
 require 'rbbt/sources/string'
 require 'rbbt/sources/InterPro'
@@ -80,6 +79,27 @@ post '/tool/cytoscape/get_nodes' do
     nodes.to_json
   end
 end
+
+post '/tool/cytoscape/get_neighbours' do
+  database, entities_json, knowledgebase = params.values_at :database, :entities, :knowledgebase
+
+  entities = JSON.parse(entities_json)
+
+  if knowledgebase.nil? or knowledgebase.empty?
+    knowledgebase = $knowledge_base
+  else
+    knowledgebase = Graph::KnowledgeBase.new knowledgebase
+  end
+
+  @cache_type = :exec
+  content_type "application/json"
+  cache('get_neighbours', :database => database, :entities => entities_json, :knowledgebase => knowledgebase) do
+    info = knowledgebase.neighbours(database, entities)
+
+    info.to_json
+  end
+end
+
 
 post '/tool/cytoscape/get_edges' do
   database, entity_json = params.values_at "database", "entities"

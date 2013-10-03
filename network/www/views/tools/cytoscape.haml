@@ -10,32 +10,43 @@
   %dl.tabs
     %dt Controls
     %dd.controls
-      - if not static
-        .database_edges
-          %h5 Add edges between entities
-          = action_parameters nil, {:klass => ''}, :action => '#' do
-            - input :database, :multiple, "Association database", nil, :choices => graph.association_sources
+      %dl.rbbt_accordion
+        - if not static
 
-        .add_gene_list
-          %h5 Add entities from a list
-          = action_parameters nil, {:klass => ''}, :action => '#' do
-            - input :entities, :select, "Entities to add", nil, :html_options => {:class => 'favourite_lists', :type => 'All'}
+          %dt.next Edges
+          %dd
+            .database_edges
+              %h5 Add edges between entities
+              = action_parameters nil, {:klass => ''}, :action => '#' do
+                - input :database, :multiple, "Association database", nil, :choices => graph.association_sources
 
-      .select_gene_list
-        %h5 Highlight entities from a list
-        = action_parameters nil, {:klass => ''}, :action => '#' do
-          - input :entities, :select, "Genes to add", nil, :html_options => {:class => 'favourite_lists', :type => 'All'}
+          %dt.next Entities
+          %dd
+            .database_neighbours
+              %h5 Add neighbours of entities
+              = action_parameters nil, {:klass => ''}, :action => '#' do
+                - input :database, :select, "Association database", nil, :select_options => graph.association_sources
 
-      .maps
-        %h5 Map aesthetic
-        = action_parameters nil, {:klass => ''}, :action => '#' do
-          - input :map, :select, "Select map to use", nil, :html_options => {:class => 'favourite_maps', :type => 'All'}
-          - input :aesthetic, :select, "Aesthetic to map to", :opacity, :select_options => [:opacity, :borderWidth]
 
-      .maps
-        %h5 Save selected
-        - graph.entities.each do |type, list|
-          =  type
+            .add_gene_list
+              %h5 Add entities from a list
+              = action_parameters nil, {:klass => ''}, :action => '#' do
+                - input :entities, :select, "Entities to add", nil, :html_options => {:class => 'favourite_lists', :type => 'All'}
+
+        %dt.next Aesthetics
+        %dd
+          .select_gene_list
+            %h5 Highlight entities from a list
+            = action_parameters nil, {:klass => ''}, :action => '#' do
+              - input :entities, :select, "Genes to add", nil, :html_options => {:class => 'favourite_lists', :type => 'All'}
+
+          .maps
+            %h5 Map entity aesthetic
+            = action_parameters nil, {:klass => ''}, :action => '#' do
+              - input :aesthetic, :select, "Aesthetic to map to", :opacity, :select_options => [:shape, :size, :color, :opacity, :borderWidth]
+              - input :field, :string, "Attribute to map", 'id', :select_options => {:textarea => "Use textarea"}, :html_options => {:class => 'favourite_maps', :type => 'All'}
+              - input :map, :select, "Select map to use", nil, :select_options => {:textarea => "Use textarea"}, :html_options => {:class => 'favourite_maps', :type => 'All'}
+              - input :map_json, :text, "Map", nil, :nofile => true
 
     %dt Cytoscape
     %dd
@@ -140,6 +151,20 @@
           return false;
         })
 
+        $('dd.controls .database_neighbours input[type=submit]').click(function(){
+          var databases = $.map($(this).parents('form').first().find('.input.database').find('input[type=checkbox]:checked'), function(e){
+            return $(e).attr('name').match(/\[(.*)\]/)[1];
+          })
+          var option = $(this).closest('form').find('select').find('option:selected');
+          var database = option.html()
+
+          tool.cytoscape_tool('add_neighbours', database)
+          tool.cytoscape_tool('draw');
+
+          return false;
+        })
+
+
         $('dd.controls .add_gene_list input[type=submit]').click(function(){
           var option = $(this).closest('form').find('select.favourite_lists').find('option:selected');
           var type = option.attr('attr-entity_type')
@@ -178,15 +203,27 @@
         $('dd.controls .maps input[type=submit]').click(function(){
           var form = $(this).closest('form')
 
+
           var map_id = form.first().find('div.input.map select').val();
+          var field = form.first().find('div.input.field input').val();
+          var map_content = form.first().find('div.input.map_json textarea').val();
           var option = form.first().find('div.input.map option:selected');
           var type = option.attr('attr-entity_type')
           var column = form.first().find('div.input.map select').find('option:selected').attr('attr-column');
           var aesthetic = form.first().find('div.input.aesthetic select').val();
 
-          var map = entity_map(type, column, map_id);
 
-          tool.cytoscape_tool('aesthetic', 'nodes', aesthetic, map)
+          var map;
+
+          if (map_id == 'textarea'){
+            map = JSON.parse(map_content)
+          }else{
+            map = entity_map(type, column, map_id);
+          }
+
+          tool.cytoscape_tool('aesthetic', 'nodes', aesthetic, map, field)
+          tool.cytoscape_tool('draw')
+
 
           return false;
         })
