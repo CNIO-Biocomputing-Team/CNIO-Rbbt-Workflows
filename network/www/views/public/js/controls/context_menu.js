@@ -22,4 +22,19 @@ function cytoscape_context_menu(tool){
     })
     tool.cytoscape_tool('draw');
   });
+
+  tool.cytoscape_tool('add_context_menu_item', "Log info", "nodes", function (evt) {
+    var vis = tool.cytoscape_tool('vis');
+    var node = evt.target;
+
+    console.log("Node: " + node.data.label);
+    for (var i in node.data) {
+      var variable_name = i;
+      var variable_value = node.data[i];
+      console.log( "event.target.data." + variable_name + " = " + variable_value );
+    }
+
+  });
+
+
 }

@@ -86,15 +86,15 @@ post '/tool/cytoscape/get_neighbours' do
   entities = JSON.parse(entities_json)
 
   if knowledgebase.nil? or knowledgebase.empty?
-    knowledgebase = $knowledge_base
+    knowledgebases = [$knowledge_base]
   else
-    knowledgebase = Graph::KnowledgeBase.new knowledgebase
+    knowledgebases = [Graph::KnowledgeBase.new(knowledgebase), $knowledge_base]
   end
 
   @cache_type = :exec
   content_type "application/json"
   cache('get_neighbours', :database => database, :entities => entities_json, :knowledgebase => knowledgebase) do
-    info = knowledgebase.neighbours(database, entities)
+    info = knowledgebases.collect{|kb| kb.neighbours(database, entities)}.compact.first
 
     info.to_json
   end

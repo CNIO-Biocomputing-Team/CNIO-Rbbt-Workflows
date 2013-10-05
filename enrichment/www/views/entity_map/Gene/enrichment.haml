@@ -10,7 +10,7 @@
 - action_card.require :database, :cutoff, :fdr, :permutations
 = action_card_render action_card do
   - job = Enrichment.job(:rank_enrichment, map_id, :database => database, :list => map.sort_by(map.fields.first, true), :organism => map.namespace, :cutoff => cutoff.to_f, :permutations => permutations.to_i, :fdr => fdr)
-  = table :table_id => "Rank enrichment (#{ database }) for list: #{ map_id }" do
+  = table :table_id => "Rank enrichment (#{ database }) for list: #{ map_id }", :page => '1~p-value' do
     - job.run
 
 

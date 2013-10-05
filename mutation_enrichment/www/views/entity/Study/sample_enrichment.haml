@@ -4,7 +4,7 @@
     
 - action_card.require :database, :cutoff
 = action_card_render action_card do
-  = table :table_id => "Sample enrichment (#{ database }) for #{ entity }" do
+  = table :table_id => "Sample enrichment (#{ database }) for #{ entity }", :page => "1~p-value" do
     - tsv = entity.job(:sample_pathway_enrichment, :baseline => :pathway_base_counts, :database => database, :cutoff => cutoff).run
     - tsv.select("p-value"){|p| p.to_s.to_f < cutoff.to_f}
  

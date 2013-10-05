@@ -32,7 +32,7 @@
 
   - header tsv.key_field, tsv.key_field.split(":").last
   - if tsv.size > 0
-    = table :table_id => "Enrichment (#{ database }) for list: #{ list_id }" do
+    = table :table_id => "Enrichment (#{ database }) for list: #{ list_id }", :page => '1~p-value' do
       - tsv
 
   - else

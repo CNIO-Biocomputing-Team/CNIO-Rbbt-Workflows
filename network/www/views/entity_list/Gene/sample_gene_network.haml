@@ -11,13 +11,13 @@
   - kb = Graph::KnowledgeBase.new dir
   - kb.info["All"] = {:organism => "Hsa/jan2013", :study => study}
 
-  - g = Graph.new(kb)
+  - g = Graph.new([$knowledge_base, kb])
   - g.entities["Gene"] = []
   - g.entities["Sample"] = []
 
   - if study.has_genotypes?
     - s2g = study.samples_with_gene_affected
-    - s2g = TSV.setup(s2g, :key_field => "Ensembl Gene ID", :fields => ["Sample"], :type => :flat).select(list)
+    - s2g = TSV.setup(s2g, :key_field => "Ensembl Gene ID", :fields => ["Sample"], :type => :flat)
     - kb.register("mutations", s2g, {})
     - g.databases << 'mutations'
 
@@ -27,20 +27,20 @@
 
   - if study.has_cnv?
     - s2g = study.samples_with_gene_lost
-    - s2g = TSV.setup(s2g, :key_field => "Ensembl Gene ID", :fields => ["Sample"], :type => :flat).select(list)
+    - s2g = TSV.setup(s2g, :key_field => "Ensembl Gene ID", :fields => ["Sample"], :type => :flat)
     - kb.register("lost", s2g, {})
     - g.databases << 'lost'
     - g.entities["Gene"] += s2g.keys
     - g.entities["Sample"] += s2g.values.flatten.compact.uniq
 
     - s2g = study.samples_with_gene_gained
-    - s2g = TSV.setup(s2g, :key_field => "Ensembl Gene ID", :fields => ["Sample"], :type => :flat).select(list)
+    - s2g = TSV.setup(s2g, :key_field => "Ensembl Gene ID", :fields => ["Sample"], :type => :flat)
     - kb.register("gained", s2g, {})
     - g.databases << 'gained'
     - g.entities["Gene"] += s2g.keys
     - g.entities["Sample"] += s2g.values.flatten.compact.uniq
 
-  - g.entities["Gene"].uniq!
+  - g.entities["Gene"] = list
   - g.entities["Sample"].uniq!
  
   - g.add_aesthetic :nodes, :shape, :entity_type, {"Sample" => "SQUARE"}

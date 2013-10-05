@@ -46,7 +46,7 @@
               - input :aesthetic, :select, "Aesthetic to map to", :opacity, :select_options => [:shape, :size, :color, :opacity, :borderWidth]
               - input :field, :string, "Attribute to map", 'id', :select_options => {:textarea => "Use textarea"}, :html_options => {:class => 'favourite_maps', :type => 'All'}
               - input :map, :select, "Select map to use", nil, :select_options => {:textarea => "Use textarea"}, :html_options => {:class => 'favourite_maps', :type => 'All'}
-              - input :map_json, :text, "Map", nil, :nofile => true
+              - input :map_tsv, :text, "Map", nil, :nofile => true
 
     %dt Cytoscape
     %dd
@@ -60,6 +60,7 @@
       require_js('/js/cytoscape', function(){
         var cytoscape_id = '##{id}';
 
+        console.log("Loading cytoscape: " + cytoscape_id)
         var tool = $(cytoscape_id).cytoscape_tool({
           network: #{graph.network.to_json},
           knowledgebase: '#{knowledgebase}',
@@ -188,12 +189,13 @@
           var type = option.attr('attr-entity_type')
           var list_id = $(this).parents('form').first().find('select').val();
           var list = list_entities(type, list_id);
-          var info = list_info(type, list_id);
+          //var info = list_info(type, list_id);
 
-          var format = info.format
-          if (undefined === format){
-            format = type
-          }
+          //var format = info.format
+          //if (undefined === format){
+          //  format = type
+          //}
+          console.log(list)
 
           tool.cytoscape_tool('select_entities', list)
 
@@ -206,24 +208,27 @@
 
           var map_id = form.first().find('div.input.map select').val();
           var field = form.first().find('div.input.field input').val();
-          var map_content = form.first().find('div.input.map_json textarea').val();
+          var map_content = form.first().find('div.input.map_tsv textarea').val();
           var option = form.first().find('div.input.map option:selected');
           var type = option.attr('attr-entity_type')
           var column = form.first().find('div.input.map select').find('option:selected').attr('attr-column');
           var aesthetic = form.first().find('div.input.aesthetic select').val();
 
-
           var map;
 
           if (map_id == 'textarea'){
-            map = JSON.parse(map_content)
+            map_content = "#: :type=:single#:sep=/\\s/#:identifiers=Hsa/jan2013\n" + map_content
+            rbbt_job('TSVWorkflow', 'to_json', {tsv: map_content}, function(data){
+              var map = JSON.parse(data)
+              tool.cytoscape_tool('aesthetic', 'nodes', aesthetic, map, field)
+              tool.cytoscape_tool('draw')
+            })
           }else{
-            map = entity_map(type, column, map_id);
+            entity_map(type, column, map_id, function(map){
+              tool.cytoscape_tool('aesthetic', 'nodes', aesthetic, map, field)
+              tool.cytoscape_tool('draw')
+            });
           }
-
-          tool.cytoscape_tool('aesthetic', 'nodes', aesthetic, map, field)
-          tool.cytoscape_tool('draw')
-
 
           return false;
         })

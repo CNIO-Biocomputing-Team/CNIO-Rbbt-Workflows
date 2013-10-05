@@ -25,5 +25,32 @@ function cytoscape_save(tool){
 
   })
 
+  tool.cytoscape_tool('add_context_menu_item', "List selected", "none", function (evt) {
+    var vis = tool.cytoscape_tool('vis');
+    var all_nodes = vis.nodes();
+    var selected = vis.selected('nodes')
+
+    var types = $.map(selected, function(e){return e.data['entity_type']})
+    types = uniq(types)
+
+    if (types.length > 1){
+      var select = $('<select>')
+      for (i in types){ select.append($('<option>').val(types[i]).html(types[i]))}
+      var dialog = $('<form>').append(select).append($('<input>').attr('type', 'submit'))
+
+      $('#modal').modal('ask', dialog, "Select entity type", function(){
+        var type = $(this).find('select option:selected').val()
+        $('#modal').modal('close')
+        tool.cytoscape_tool('list_selected', type, selected)
+        return false;
+      });
+
+    }else{
+      var type = types[0];
+      tool.cytoscape_tool('list_selected', type, selected)
+    }
+  })
+
+
 
 }

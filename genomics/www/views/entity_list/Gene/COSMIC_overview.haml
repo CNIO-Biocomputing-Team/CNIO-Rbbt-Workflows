@@ -9,7 +9,7 @@
   - header "Mean mut. distance", "NumericValue"
   - header "Recurrent %", "NumericValue"
   - header "Hotspot statistic", "NumericValue"
-  = table :table_id => "Details for #{ list_id }" do
+  = table :table_id => "Details for #{ list_id }", :page => '1~-COSMIC mutations' do
     - tsv = TSV.setup({}, :key_field => "Ensembl Gene ID", :fields => ["COSMIC mutations", "Mutations / Protein size", "Mean mut. distance", "Recurrent %", "Hotspot statistic"], :type => :list, :namespace => list.organism)
     - list.ensembl.compact.each do |gene|
       - next if gene.transcripts.nil? or gene.transcripts.empty?

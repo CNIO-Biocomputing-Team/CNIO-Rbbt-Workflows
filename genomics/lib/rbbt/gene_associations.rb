@@ -2,6 +2,7 @@ require 'rbbt/association'
 
 require 'rbbt/entity'
 require 'rbbt/entity/gene'
+require 'rbbt/entity/knowledge_base'
 require 'rbbt/sources/organism'
 require 'rbbt/sources/pina'
 require 'rbbt/sources/kegg'
@@ -9,7 +10,6 @@ require 'rbbt/sources/go'
 require 'rbbt/sources/reactome'
 require 'rbbt/sources/NCI'
 require 'rbbt/sources/InterPro'
-
 
 Association.register 'kegg'     , KEGG.gene_pathway
 

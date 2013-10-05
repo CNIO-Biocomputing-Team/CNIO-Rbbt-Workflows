@@ -35,7 +35,7 @@
   - threshold = threshold.to_f
 
   - entities = nil
-  = table :table_id => "Overexpressed (#{type}) in #{list_id}" do
+  = table :table_id => "Overexpressed (#{type}) in #{list_id}", :page => "1~p.values" do
     - tsv = Expression.top_up(diffs, threshold)
     - tsv.entity_options = {:organism => study.organism}
     - entities = tsv.keys

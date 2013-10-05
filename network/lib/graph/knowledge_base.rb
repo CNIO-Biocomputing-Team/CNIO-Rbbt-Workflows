@@ -10,12 +10,22 @@ class Graph
       self.instance_eval &block if block_given?  if File.exists? dir
     end
 
-    def all_repos
-      Dir.glob(dir + '/*').collect{|f| File.basename f }
+    def all_databases
+      Dir.glob(dir + '/*').collect{|f| File.basename f }.reject{|f| f =~ /\.reverse$/ }
+    end
+
+    def database_info
+      info = {}
+      all_databases.each do |name|
+        repo = get_repo name
+        target, source, undirected = database_types name
+        fields = repo.fields
+        info[name] = {:target => target, :source => source, :undirected => undirected, :info => fields}
+      end
     end
 
     def association_sources
-      all_repos
+      all_databases
     end
 
     def repo_file(name)
@@ -30,8 +40,10 @@ class Graph
         nil
     end
 
-    def repo_types(name)
-      source, target = get_repo(name).key_field.split "~"
+    def database_types(name)
+      repo = get_repo(name)
+      return nil if repo.nil?
+      source, target = repo.key_field.split "~"
       source_type = Entity.formats[source]
       target_type = Entity.formats[target]
       [source_type, target_type]
@@ -40,8 +52,8 @@ class Graph
     def init_entity_registry
       @sources = {}
       @targets = {}
-      all_repos.each do |repo|
-        source_type, target_type = repo_types repo
+      all_databases.each do |repo|
+        source_type, target_type = database_types repo
         @sources[source_type] ||= []
         @sources[source_type] << repo
         @targets[target_type] ||= []
@@ -75,10 +87,16 @@ class Graph
     end
 
     def neighbours(name, entities)
-      source_type, target_type = repo_types name
+      repo = get_repo(name)
+      return nil if repo.nil?
 
-      list = entities[source_type.to_s]
-      {:type => target_type, :entities => Association.neighbours(get_repo(name), list)}
+      source_type, target_type = database_types name
+
+      if (list = entities[source_type.to_s]) and list.any?
+        {:type => target_type, :entities => Association.neighbours(repo, list)}
+      else
+        {:type => source_type, :entities => Association.neighbours(repo, entities[target_type.to_s])}
+      end
     end
   end
 end
