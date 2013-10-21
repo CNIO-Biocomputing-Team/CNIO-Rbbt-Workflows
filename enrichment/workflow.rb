@@ -1,13 +1,13 @@
 require 'rbbt'
 require 'rbbt/util/misc'
 require 'rbbt/workflow'
+require 'rbbt/association'
+require 'rbbt/knowledge_base'
 require 'rbbt/statistics/hypergeometric'
 require 'rbbt/statistics/random_walk'
 
 Workflow.require_workflow 'Genomics'
-
-require 'rbbt/association'
-require 'rbbt/gene_associations'
+require 'genomics_kb'
 
 Workflow.require_workflow 'Translation'
 Workflow.require_workflow 'TSVWorkflow'
@@ -15,6 +15,16 @@ Workflow.require_workflow 'TSVWorkflow'
 module Enrichment
   extend Workflow
   extend Resource
+
+  self.subdir = "MutationEnrichment"
+
+  class << self
+    attr_accessor :knowledge_base_dir
+
+    def knowledge_base_dir
+      @knowledge_base_dir ||= Enrichment.var.knowledge_base
+    end
+  end
 
 
   MASKED_TERMS = %w(cancer melanoma carcinoma glioma hepatitis leukemia leukaemia disease infection opathy hepatitis sclerosis hepatatis glioma Shigellosis)
@@ -38,18 +48,34 @@ module Enrichment
     RENAMES[gene] = "Cadherin"
   end
 
-  DATABASES = Association.databases.keys
+  DATABASES = Genomics.knowledge_base.registry.keys
 
   helper :database_info do |database, organism|
-    @@databases ||= {}
-    @@databases[database] ||= {}
-    @@databases[database][organism] ||= begin
-      file, options = Association.get_database(database)
-      open_options = options.merge(:namespace => organism, :source_type => "Ensembl Gene ID", :target_type => "Ensembl Gene ID")
-      open_options = open_options.merge(:grep => Organism.blacklist_genes(organism).produce.list, :invert_grep => true)
-      association = Association.open(file, open_options)
-      [association, association.keys, association.key_field, association.fields.first]
+    @organism_kb ||= {}
+    @organism_kb[organism] ||= begin
+                                 dir = Enrichment.knowledge_base_dir
+
+                                 kb = KnowledgeBase.new dir, organism
+                                 kb.format["Gene"] = "Ensembl Gene ID"
+                                 kb.registry = Genomics.knowledge_base.registry
+                                 kb
+                               end
+
+    db = @organism_kb[organism].get_database(database, :persist => true)
+
+    tsv, total_keys, source_field, target_field = [db, db.keys, db.key_field, db.fields.first]
+
+    if target_field == "Ensembl Gene ID"
+      pathway_field, gene_field = source_field, target_field
+      total_genes = Gene.setup(tsv.values.flatten.compact.uniq, "Ensembl Gene ID", organism)
+    else
+      pathway_field, gene_field = target_field, source_field
+      total_genes = total_keys
     end
+
+    tsv.namespace = organism
+
+    [tsv, total_genes, gene_field, pathway_field]
   end
 
   input :database, :select, "Database code", nil, :select_options => DATABASES
@@ -62,6 +88,8 @@ module Enrichment
   input :mask_diseases, :boolean, "Mask disease related terms", true
   input :fix_clusters, :boolean, "Fixed dependence in gene clusters", true
   task :enrichment => :tsv do |database, list, organism, cutoff, fdr, background, invert_background, mask_diseases, fix_clusters|
+    raise ParameterException, "No list given" if list.nil? or list.empty?
+
     ensembl    = Translation.job(:translate, nil, :format => "Ensembl Gene ID", :genes => list, :organism => organism).run.compact.uniq
     background = Translation.job(:translate, nil, :format => "Ensembl Gene ID", :genes => background, :organism => organism).run.compact.uniq if background and background.any?
     Gene.setup(ensembl, "Ensembl Gene ID", "Hsa")
@@ -111,11 +139,6 @@ module Enrichment
     Gene.setup(background, "Ensembl Gene ID", "Hsa") if background
 
     database_tsv, all_db_genes, database_key_field, database_field = database_info database, organism
-
-    #if database_key_field != "Ensembl Gene ID"
-    #  database_tsv = TSVWorkflow.job(:change_id, "Enrichment", :tsv => database_tsv, :format => "Ensembl Gene ID", :organism => organism).exec
-    #  all_db_genes = all_db_genes.to("Ensembl Gene ID").compact.uniq
-    #end
 
     if mask_diseases and not Gene == Entity.formats[database_field]
       Log.debug("Masking #{MASKED_TERMS * ", "}")

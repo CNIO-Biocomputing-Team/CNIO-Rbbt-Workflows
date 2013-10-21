@@ -4,11 +4,11 @@
 
 - entity_list_card.description do
 
-  - g = Graph.new($knowledge_base)
-  - g.entities["Gene"] = list.ensembl.compact
+  - c = Cytoscape.new $knowledge_base, list.organism
+  - c.add_entities  list.ensembl.compact
 
   - if list.length < 1_200
-    = tool :cytoscape, :graph => g, :id => Misc.snake_case(list_id)
+    = tool :cytoscape, :cytoscape => c, :id => Misc.snake_case(list_id)
 
 = entity_list_card_render entity_list_card
 

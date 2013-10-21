@@ -1,14 +1,12 @@
-- require 'rbbt/util/colorize'
+- action_card = ActionCard.new  do
+  - input :list, :select, "Ensembl Gene ID gene_list", nil, :html_options => {:class => 'favourite_lists', :type => 'Gene'}
+  - input :map, :select, "Select map to use", nil, :select_options => [:none].compact, :html_options => {:class => 'favourite_maps', :type => 'Sample'}
+  - input :samples, :select, "Select map to use", nil, :select_options => [:none].compact, :html_options => {:class => 'favourite_lists', :type => 'Sample'}
 
-- list ||= nil
-- samples ||= nil
-- action_card = ActionCard.new 
+- action_card.require :list
 
-- action_card.require :list, :map, :samples do
-  - input :list, :select, "Ensembl Gene ID list", list, :select_options => [list].compact, :html_options => {:class => 'favourite_lists', :type => 'Gene'}
-  - input :map, :select, "Select map to use", map, :select_options => [:none, map].compact, :html_options => {:class => 'favourite_maps', :type => 'Sample'}
-  - input :samples, :select, "Select map to use", samples, :select_options => [:none, samples].compact, :html_options => {:class => 'favourite_lists', :type => 'Sample'}
 = action_card_render action_card do
+  - require 'rbbt/util/colorize'
   - map ||= "none"
   - list ||= "none"
   - study = entity
@@ -28,7 +26,7 @@
 
   .heatmap
     = resource "Heatmap of #{ list_id } expression in #{study} (#{map}).png", nil, :image do |filename|
-      - fixed_expression = TSVWorkflow.job(:change_id, nil, :tsv => expression, :format => "Associated Gene Name").exec 
+      - fixed_expression = expression.change_key "Associated Gene Name", :identifiers => Organism.identifiers(study.organism)
       - options = {:take_log => true, :scale => 'column' }
 
       - m = Entity::Map.load_map("Sample", "*", map, user) if map and map != "none"
@@ -47,7 +45,7 @@
   = table do
     - expression
  
-:sass
+-#:sass
   .heatmap img
     max-width: 800px
     max-height: 500px

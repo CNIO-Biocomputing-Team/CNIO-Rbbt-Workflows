@@ -316,13 +316,12 @@ module Gene
         end
       end
 
-      Gene.setup(interactors, "Associated Gene Name", self.organism)
+      interactors = Gene.setup(interactors.uniq, "Associated Gene Name", self.organism)
       
-      interactors_ensembl = interactors.ensembl
 
       interactors2ensembl = {}
-      interactors.collect{|i| i}.zip(interactors_ensembl.collect{|i| i}).each do |o,e|
-        interactors2ensembl[o] = e
+      interactors.each do |interactor|
+        interactors2ensembl[interactor] = interactor.ensembl
       end
 
       ihop_interactions.collect do |sentence|
@@ -344,7 +343,7 @@ module Gene
 
           if interactors2ensembl.include? symbol and not interactors2ensembl[symbol].nil?
             atom.children.remove
-            interactor = interactors2ensembl[symbol]
+            interactor = Gene.setup(interactors2ensembl[symbol].clean_annotations, "Ensembl Gene ID", self.organism)
             atom.replace interactor.respond_to?(:link)? interactor.link(nil, :title => literal) : interactor.name
           end
         }

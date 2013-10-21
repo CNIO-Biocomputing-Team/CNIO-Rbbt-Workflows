@@ -8,7 +8,7 @@
   - Study.setup(study)
 
   - dir = @step.file('knowledge_base')
-  - kb = Graph::KnowledgeBase.new dir
+  - kb = KnowledgeBase.new dir
   - kb.info["All"] = {:organism => "Hsa/jan2013", :study => study}
 
   - g = Graph.new([$knowledge_base, kb])

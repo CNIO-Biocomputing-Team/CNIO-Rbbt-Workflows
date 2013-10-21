@@ -40,7 +40,7 @@ module ChromosomeRange
   end
 
   property :genes => :array2single do
-    Sequence.job(:genes_at_genomic_ranges, "ChromosomeRange", :organism => organism, :ranges => self.unit).run.tap{|t| t.namespace = organism}.chunked_values_at self.unit
+    Gene.setup(Sequence.job(:genes_at_genomic_ranges, "ChromosomeRange", :organism => organism, :ranges => self.unit).run.tap{|t| t.namespace = organism}.chunked_values_at(self.unit), "Ensembl Gene ID", organism)
   end
 
   property :ensembl_browser => :single2array do

@@ -1,14 +1,10 @@
-network=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
+Graph=/$PWD filter="*.rb *.R *.js *.sass *.haml *.tsv" {
  workflow.rb
  workflow.md
  lib=lib {
   sinatra.rb
-  graph.rb
-  graph=graph{
-   knowledge_base.rb
-   cytoscape.rb
-   merge.rb
-  }
+  link.rb
+  cytoscape.rb
  }
  www=www {
   views=views {

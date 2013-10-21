@@ -16,8 +16,8 @@ Genomics=/$PWD filter="*.config *.rb *.rake Rakefile *.rdoc *.R *.sh *.js *.haml
     snp.rb
     transcript.rb
    }
-   gene_associations.rb
   }
+  genomics_kb.rb
  }
  www=www{
   views=views{
@@ -47,8 +47,10 @@ Genomics=/$PWD filter="*.config *.rb *.rake Rakefile *.rdoc *.R *.sh *.js *.haml
      chromosome_range_in_study.haml
      gene_list_in_study.haml
      gene_list_expression.haml
+     gene_list_expression.check
      sample_details.haml
      snp_in_study.haml
+     snp_in_study.check
     }
    }
    entity_list=entity_list{

@@ -9,7 +9,7 @@
   - threshold = threshold.to_f
   - range = range.gsub(/[,\s]/,'').gsub(/[-]/,':')
   - range = ChromosomeRange.setup(range, entity.organism)
-  - range_genes = range.genes.select_by(:biotype){|b| b == 'protein_coding'}
+  - range_genes = range.genes.any? ? range.genes.select_by(:biotype){|b| b == 'protein_coding'} : []
   - range_size = range.end - range.start
   - range_size = range_size.to_f
   - p = nil
@@ -150,6 +150,6 @@
       - samples = entity.samples.select_by(:has_cnv?).select{|s| (s.lost_genes & range_genes).length > range_genes.length.to_f * 0.8}
       = samples.list_link :length, "Samples with #{range} methylated in #{ entity }"
 
-  .svg
+  -#.svg
     = p.get_markup
 

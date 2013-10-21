@@ -1,13 +1,10 @@
 - entity_card = EntityCard.new(entity)
 
 - entity_card.description do
-  = fragment do 
-    %p= entity.description
-
+  %p= entity.description
 
 - entity_card.long_name do
-  = fragment do 
-    = entity.long_name
+  = entity.long_name
 
 - entity_card.meta do
   %dl

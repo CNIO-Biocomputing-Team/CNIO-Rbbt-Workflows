@@ -22,6 +22,7 @@
 
 
 - list_container = ListContainer.new
+-# list_container.add "Genes for #{[entity.base_type, name] * ": "}", Gene.setup(entity.genes, "Ensembl Gene ID", entity.organism)
 - list_container.add "Genes for #{[entity.base_type, name] * ": "}", entity.genes
 - entity_card.list_container = list_container
 

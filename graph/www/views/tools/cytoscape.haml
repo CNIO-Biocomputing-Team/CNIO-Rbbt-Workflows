@@ -1,60 +1,53 @@
 - id = (rand * 1000).to_i unless defined? id and not (id.nil? or id.empty?)
 - id = Misc.snake_case(id)
 - static = false unless defined? static and not static.nil?
-- knowledgebase = nil unless defined? knowledgebase and not knowledgebase.nil?
+- knowledge_base = nil unless defined? knowledge_base and not knowledge_base.nil?
 
 = link_css '/stylesheets/cytoscape'
 
 .cytoscape_tool(id=id)
 
-  %dl.tabs
-    %dt Controls
-    %dd.controls
-      %dl.rbbt_accordion
-        - if not static
+  %dl.rbbt_menu
+    - if not static
 
-          %dt.next Edges
-          %dd
-            .database_edges
-              %h5 Add edges between entities
-              = action_parameters nil, {:klass => ''}, :action => '#' do
-                - input :database, :multiple, "Association database", nil, :choices => graph.association_sources
+      %dt.next Edges
+      %dd.content
+        .database_edges
+          %h5 Add edges between entities
+          = action_parameters nil, {:klass => ''}, :action => '#' do
+            - input :database, :multiple, "Association database", nil, :choices => cytoscape.knowledge_base.all_databases
+          
 
-          %dt.next Entities
-          %dd
-            .database_neighbours
-              %h5 Add neighbours of entities
-              = action_parameters nil, {:klass => ''}, :action => '#' do
-                - input :database, :select, "Association database", nil, :select_options => graph.association_sources
+      %dt.next Entities
+      %dd.content
+        .database_neighbours
+          %h5 Add neighbours of entities
+          = action_parameters nil, {:klass => ''}, :action => '#' do
+            - input :database, :select, "Association database", nil, :select_options => cytoscape.knowledge_base.all_databases
 
+        .add_gene_list
+          %h5 Add entities from a list
+          = action_parameters nil, {:klass => ''}, :action => '#' do
+            - input :entities, :select, "Entities to add", nil, :html_options => {:class => 'favourite_lists', :type => 'All'}
 
-            .add_gene_list
-              %h5 Add entities from a list
-              = action_parameters nil, {:klass => ''}, :action => '#' do
-                - input :entities, :select, "Entities to add", nil, :html_options => {:class => 'favourite_lists', :type => 'All'}
+    %dt.next Aesthetics
+    %dd.content
+      .select_gene_list
+        %h5 Highlight entities from a list
+        = action_parameters nil, {:klass => ''}, :action => '#' do
+          - input :entities, :select, "Genes to add", nil, :html_options => {:class => 'favourite_lists', :type => 'All'}
 
-        %dt.next Aesthetics
-        %dd
-          .select_gene_list
-            %h5 Highlight entities from a list
-            = action_parameters nil, {:klass => ''}, :action => '#' do
-              - input :entities, :select, "Genes to add", nil, :html_options => {:class => 'favourite_lists', :type => 'All'}
+      .maps
+        %h5 Map entity aesthetic
+        = action_parameters nil, {:klass => ''}, :action => '#' do
+          - input :aesthetic, :select, "Aesthetic to map to", :opacity, :select_options => [:shape, :size, :color, :opacity, :borderWidth]
+          - input :field, :string, "Attribute to map", 'id', :select_options => {:textarea => "Use textarea"}, :html_options => {:class => 'favourite_maps', :type => 'All'}
+          - input :map, :select, "Select map to use", nil, :select_options => {:textarea => "Use textarea"}, :html_options => {:class => 'favourite_maps', :type => 'All'}
+          - input :map_tsv, :text, "Map", nil, :nofile => true
 
-          .maps
-            %h5 Map entity aesthetic
-            = action_parameters nil, {:klass => ''}, :action => '#' do
-              - input :aesthetic, :select, "Aesthetic to map to", :opacity, :select_options => [:shape, :size, :color, :opacity, :borderWidth]
-              - input :field, :string, "Attribute to map", 'id', :select_options => {:textarea => "Use textarea"}, :html_options => {:class => 'favourite_maps', :type => 'All'}
-              - input :map, :select, "Select map to use", nil, :select_options => {:textarea => "Use textarea"}, :html_options => {:class => 'favourite_maps', :type => 'All'}
-              - input :map_tsv, :text, "Map", nil, :nofile => true
-
-    %dt Cytoscape
-    %dd
-      .window(id="#{id}_window")
-      .inspector
+  .window(id="#{id}_window")
 
 
-  - entity_options = graph.entity_options
   :javascript
     deffer(function(){
       require_js('/js/cytoscape', function(){
@@ -62,9 +55,10 @@
 
         console.log("Loading cytoscape: " + cytoscape_id)
         var tool = $(cytoscape_id).cytoscape_tool({
-          network: #{graph.network.to_json},
-          knowledgebase: '#{knowledgebase}',
-          entity_options: #{entity_options.to_json},
+          knowledge_base: 'genomics',
+          namespace: '#{cytoscape.namespace}',
+          entities: #{cytoscape.entities.to_json},
+          network: #{cytoscape.network.to_json},
 
           node_click: function(event){
             var target = event.target;
@@ -82,7 +76,7 @@
 
           edge_click: function(event){
             var target = event.target;
-            for (var i in target.data) {
+            for (var i in target.data){
               var variable_name = i;
               var variable_value = target.data[i];
               console.log( "event.target.data." + variable_name + " = " + variable_value );
@@ -119,29 +113,12 @@
         ///////////////////////////////////
         //{{{ NETWORK INIT
 
-        #{graph.entities.keys.collect do |type|
-          entity_options = graph.entity_options(type)
-          "tool.cytoscape_tool('add_entities', '#{type}', #{graph.entities[type].to_json});"
-          end * "\n" unless static
-        }
-
-        #{graph.databases.collect do |database|
-          "tool.cytoscape_tool('add_edges', '#{database}');"
-          end * "\n" unless static
-        }
-        #{graph.aesthetics.collect do |elem, aesthetics|
-          aesthetics.collect do |aesthetic, info|
-            "tool.cytoscape_tool('aesthetic', '#{ elem }', '#{ aesthetic }', #{info[:map].to_json}, '#{info[:feature]}');"
-          end
-        end.flatten * "\n"
-        }
-
         tool.cytoscape_tool('draw');
 
         //////////////////////////////////////////////////////////////////
         //{{{ Controls
 
-        $('dd.controls .database_edges input[type=submit]').click(function(){
+        $('.cytoscape_tool .database_edges input[type=submit]').click(function(){
           var databases = $.map($(this).parents('form').first().find('.input.database.multiple').find('input[type=checkbox]:checked'), function(e){
             return $(e).attr('name').match(/\[(.*)\]/)[1];
           })
@@ -152,7 +129,7 @@
           return false;
         })
 
-        $('dd.controls .database_neighbours input[type=submit]').click(function(){
+        $('.cytoscape_tool .database_neighbours input[type=submit]').click(function(){
           var databases = $.map($(this).parents('form').first().find('.input.database').find('input[type=checkbox]:checked'), function(e){
             return $(e).attr('name').match(/\[(.*)\]/)[1];
           })
@@ -166,43 +143,31 @@
         })
 
 
-        $('dd.controls .add_gene_list input[type=submit]').click(function(){
+        $('.cytoscape_tool .add_gene_list input[type=submit]').click(function(){
           var option = $(this).closest('form').find('select.favourite_lists').find('option:selected');
           var type = option.attr('attr-entity_type')
           var list_id = $(this).parents('form').first().find('select').val();
           var list = list_entities(type, list_id);
           var info = list_info(type, list_id);
 
-          var format = info.format
-          if (undefined === format){
-            format = type
-          }
-
-          tool.cytoscape_tool('add_entities', format, list)
+          tool.cytoscape_tool('add_entities', type, list)
           tool.cytoscape_tool('draw');
 
           return false;
         })
 
-        $('dd.controls .select_gene_list input[type=submit]').click(function(){
+        $('.cytoscape_tool .select_gene_list input[type=submit]').click(function(){
           var option = $(this).closest('form').find('select.favourite_lists').find('option:selected');
           var type = option.attr('attr-entity_type')
           var list_id = $(this).parents('form').first().find('select').val();
           var list = list_entities(type, list_id);
-          //var info = list_info(type, list_id);
-
-          //var format = info.format
-          //if (undefined === format){
-          //  format = type
-          //}
-          console.log(list)
 
           tool.cytoscape_tool('select_entities', list)
 
           return false;
         })
 
-        $('dd.controls .maps input[type=submit]').click(function(){
+        $('.cytoscape_tool .maps input[type=submit]').click(function(){
           var form = $(this).closest('form')
 
 

@@ -94,7 +94,7 @@ module TextMining
     mentions
   end
   task :gene_mention_recognition => :annotations
-  export_exec :gene_mention_recognition
+  export_synchronous :gene_mention_recognition
 
   input :text, :text, "Text to process"
   input :method, :select, "Compound NER method to use", :JoChem, :select_options => ['JoChem']

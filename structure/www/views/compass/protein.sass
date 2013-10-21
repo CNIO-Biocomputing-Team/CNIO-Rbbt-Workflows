@@ -1,7 +1,8 @@
 @import '_rbbt'
 
 dd > select
-  width: 300px
+  @media #{$only-large}
+    width: 300px
 ul.controls, ul.highlight
   +rbbt_menu(#fff)
   width: auto

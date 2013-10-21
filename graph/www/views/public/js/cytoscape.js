@@ -7,7 +7,7 @@ $.widget("rbbt.cytoscape_tool", {
   // where you have the Cytoscape Web SWF
   swfPath: "/js-find/cytoscape/swf/CytoscapeWeb",
   flashInstallerPath: "/js/cytoscape/swf/playerProductInstall",
-  knowledgebase: undefined,
+  knowledge_base: undefined,
   entities: {},
   databases: [],
   aesthetics: {nodes:{}, edges:{}},
@@ -93,7 +93,6 @@ $.widget("rbbt.cytoscape_tool", {
   },
 
  _update_events: function(){
-  console.log("Update events")
   var vis = this._vis()
   var tool = this;
   vis.ready(function(){
@@ -144,46 +143,30 @@ $.widget("rbbt.cytoscape_tool", {
   },
 
   _get_network: function(databases, complete){
-    return get_ajax({method: 'POST', url: '/tool/cytoscape/get_network', data: $.extend({}, this.options.entity_options, {knowledgebase: this.options.knowledgebase, databases: databases.join("|"), entities: JSON.stringify(this.options.entities), entity_options: JSON.stringify(this.options.entity_options), _format: 'json'}), async: false}, complete);
+    var url = '/knowledge_base/network'
+    var data = $.extend({}, {
+      knowledge_base: this.options.knowledge_base, 
+      entities: JSON.stringify(this.options.entities), 
+      databases: this.options.databases,
+      namespace: this.options.namespace,
+      _format: 'cytoscape'
+    })
+
+    return get_ajax({method: 'POST', url: url, data: data, async: false}, complete);
   },
 
   _get_neighbours: function(database, entities, complete){
-    return get_ajax({method: 'POST', url: '/tool/cytoscape/get_neighbours', data: $.extend({}, this.options.entity_options, {knowledgebase: this.options.knowledgebase, database: database, entities: JSON.stringify(entities), _format: 'json'}), async: false}, complete);
-  },
-
-  _nodes: function(){
-    var all_nodes = [];
-
-    for (type in this.options.entities){
-      var nodes = this._get_nodes(type, this.options.entities[type]);
-      all_nodes = all_nodes.concat(nodes)
-    }
-
-    return all_nodes;
-  },
-
-  _filter_edges: function(edges){
-    var tool = this;
-    var all_entities = this._all_entities();
-    var found = []
-    $.each(all_entities, function(){found[this] = true})
-
-    return $.grep(edges, function(elem){
-      return(undefined !== found[elem.source] && undefined !== found[elem.target])
+    var data = $.extend({ }, 
+    this.options.entity_options,
+    {
+      entities: JSON.stringify(entities), 
+      namespace: this.options.namespace,
+      _format: 'json'
     })
-  },
 
-  _edges: function(){
-    var all_edges = [];
+    var url = ['/knowledge_base', this.options.knowledge_base, database, 'entity_collection_neighbours'].join("/")
 
-    for (i in this.options.databases){
-      var database = this.options.databases[i];
-      var edges = this._get_edges(database);
-      all_edges = all_edges.concat(edges);
-    }
-
-    all_edges = this._filter_edges(all_edges);
-    return all_edges;
+    return get_ajax({method: 'POST', url: url, data: data, async: false}, complete);
   },
 
   set_points: function(points){
@@ -191,7 +174,6 @@ $.widget("rbbt.cytoscape_tool", {
   },
 
   _update_network: function(){
-    console.log('Update')
     var config = {network: this.options.network, visualStyle: this.options.visualStyle}
 
     if (undefined !== this.options.points){
@@ -205,7 +187,6 @@ $.widget("rbbt.cytoscape_tool", {
 
   draw: function(){
    var tool = this;
-   console.log('Draw')
 
    if (this.options.network === undefined){
      this._get_network(this.options.databases, function(network){
@@ -230,7 +211,6 @@ $.widget("rbbt.cytoscape_tool", {
 
 
   select_entities: function(entities){
-   return false;
    var vis = this._vis();
    var nodes = vis.nodes();
 
@@ -249,9 +229,10 @@ $.widget("rbbt.cytoscape_tool", {
 
   add_entities: function(type, entities){
     if (undefined === this.options.entities[type]){
-      this.options.entities[type] = entities;
+      this.options.entities[type] = $.unique(entities);
     }else{
-      this.options.entities[type] = $.unique(this.options.entities[type].concat(entities));
+      this.options.entities[type] = $.unique(
+        this.options.entities[type].concat(entities))
     }
     this.options.network = undefined;
   },
@@ -259,9 +240,10 @@ $.widget("rbbt.cytoscape_tool", {
   add_neighbours: function(database){
     var tool = this
     this._get_neighbours(database, this.options.entities, function(info){
-      var type = info.type
-      var entities = info.entities
-      tool.add_entities(type, entities)
+      for (type in info){
+        var entities = info[type]
+        tool.add_entities(type, entities)
+      }
     })
     this.options.network = undefined;
   },
@@ -282,16 +264,14 @@ $.widget("rbbt.cytoscape_tool", {
   },
 
   add_edges: function(database){
-    console.log("Add edges")
     this.options.network = undefined
     this.options.databases.push(database);
     this.options.databases = $.unique(this.options.databases);
   },
 
   set_edges: function(databases){
-    console.log("Set edges")
     this.options.network = undefined
-    this.options.databases = databases;
+    this.options.databases = databases.join("|");
   },
 
   //{{{ ASCETICS

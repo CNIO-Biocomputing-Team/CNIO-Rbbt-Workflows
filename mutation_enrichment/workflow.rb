@@ -4,33 +4,63 @@ require 'rbbt/workflow'
 require 'rbbt/statistics/hypergeometric'
 require 'rbbt/statistics/random_walk'
 
-Workflow.require_workflow 'Genomics'
 Workflow.require_workflow 'TSVWorkflow'
-
-require 'rbbt/entity/gene'
+Workflow.require_workflow 'Genomics'
+require 'genomics_kb'
 require 'rbbt/entity/genomic_mutation'
-
-require 'rbbt/association'
-require 'rbbt/gene_associations'
 
 module MutationEnrichment
   extend Workflow
+  extend Resource
+  
+  self.subdir = "MutationEnrichment"
 
-  DATABASES = Association.databases.keys
+  class << self
+    attr_accessor :knowledge_base_dir
 
-  helper :database_info do |database, organism|
-    @@databases ||= {}
-    @@databases[database] ||= {}
-    @@databases[database][organism] ||= begin
-      file, options = Association.databases[database]
-      options[:fields] ||= [1]
-      options ||= {}
-      association = Association.open(file, options.merge(:namespace => organism, :source_type => "Ensembl Gene ID", :target_type => "Ensembl Gene ID", :type => :flat))
-      [association, association.keys, association.key_field, association.fields.first]
+    def knowledge_base_dir
+      @knowledge_base_dir ||= MutationEnrichment.var.knowledge_base
     end
   end
 
+  DATABASES = Genomics.knowledge_base.registry.keys
+
+  helper :database_info do |database, organism|
+    @database_info ||= {}
+    @database_info[database] ||= {}
+    @database_info[database][organism] ||= begin
+                                             @organism_kb ||= {}
+                                             @organism_kb[organism] ||= begin
+                                                                          dir = MutationEnrichment.knowledge_base_dir
+
+                                                                          kb = KnowledgeBase.new dir, organism
+                                                                          kb.format["Gene"] = "Ensembl Gene ID"
+                                                                          kb.registry = Genomics.knowledge_base.registry
+
+                                                                          kb
+                                                                        end
+
+                                             db = @organism_kb[organism].get_database(database, :persist => true)
+
+
+                                             tsv, total_keys, source_field, target_field = [db, db.keys, db.key_field, db.fields.first]
+
+                                             if target_field == "Ensembl Gene ID"
+                                               pathway_field, gene_field = source_field, target_field
+                                               total_genes = Gene.setup(tsv.values.flatten.compact.uniq, "Ensembl Gene ID", organism)
+                                             else
+                                               pathway_field, gene_field = target_field, source_field
+                                               total_genes = total_keys
+                                             end
+
+                                             tsv.namespace = organism
+
+                                             [tsv, total_genes, gene_field, pathway_field]
+                                           end
+  end
+
   #{{{ BASE AND GENE COUNTS
+
   input :masked_genes, :array, "Ensembl Gene ID list of genes to mask", []
   input :organism, :string, "Organism code", "Hsa"
   task :pathway_base_counts => :tsv do |masked_genes, organism|
@@ -39,19 +69,16 @@ module MutationEnrichment
 
     tsv, total_genes, gene_field, pathway_field = database_info database, organism
 
-    total_genes = total_genes.ensembl.compact.uniq
-
     tsv = tsv.reorder pathway_field, [gene_field]
-
-    tsv.namespace = organism
 
     counts = TSV.setup({}, :key_field => tsv.key_field, :fields => ["Bases"], :type => :single, :cast => :to_i, :namespace => organism)
 
     log :processing_database, "Processing database #{database}"
     tsv.with_monitor :desc => "Computing exon bases for pathways" do
-      tsv.through do |pathway, genes|
+      tsv.through do |pathway, values|
+        genes = values[0]
         next if genes.nil? or genes.empty? 
-        size = Gene.gene_list_exon_bases(genes.ensembl.compact.uniq.remove(masked_genes))
+        size = Gene.gene_list_exon_bases(genes.compact.uniq.remove(masked_genes))
         counts[pathway] = size
       end
     end
@@ -74,13 +101,12 @@ module MutationEnrichment
 
     tsv = tsv.reorder pathway_field, [gene_field]
 
-    tsv.namespace = organism
-
     counts = TSV.setup({}, :key_field => tsv.key_field, :fields => ["Genes"], :type => :single, :cast => :to_i, :namespace => organism)
 
-    tsv.through do |pathway, genes|
+    tsv.through do |pathway, values|
+      genes = values[0]
       next if genes.nil? or genes.empty? 
-      genes = genes.ensembl.remove(masked_genes)
+      genes = genes.remove(masked_genes)
       num = genes.length
       counts[pathway] = num
     end
@@ -108,26 +134,26 @@ module MutationEnrichment
 
 
     affected_genes = mutations.genes.compact.flatten.uniq
+    affected_genes = affected_genes.remove(masked_genes)
 
     # Get database tsv and native ids
 
-    database_tsv, all_db_genes, db_gene_field = database_info database, organism
+    database_tsv, all_db_genes, db_gene_field, db_pathway_field = database_info database, organism
 
-    affected_genes = affected_genes.remove(masked_genes)
-    affected_genes_db = affected_genes.to db_gene_field
     all_db_genes = all_db_genes.ensembl.remove(masked_genes).compact.sort
 
-    affected_genes_db = affected_genes_db.clean_annotations
+    database_tsv = database_tsv.reorder db_gene_field, [db_pathway_field]
+
 
     # Annotate each pathway with the affected genes that are involved in it
 
     log :pathway_matches, "Finding affected genes per pathway"
     affected_genes_per_pathway = {}
     database_tsv.with_unnamed do
-      affected_genes_db.zip(affected_genes.clean_annotations).each do |gene_db,gene|
-        next if gene_db.nil?
-        pathways = database_tsv[gene_db]
-        next if pathways.nil?
+      affected_genes.each do |gene|
+        next unless database_tsv[gene]
+        pathways = database_tsv[gene][0]
+        next if pathways.nil? or pathways.empty?
         pathways.uniq.each do |pathway|
           affected_genes_per_pathway[pathway] ||= []
           affected_genes_per_pathway[pathway] << gene
@@ -260,16 +286,18 @@ module MutationEnrichment
 
     tsv = TSV.setup({}, :key_field => affected_samples_per_pathway.key_field, :fields => ["Sample", "Matches", "Expected", "Ratio", "Pathway total", "p-value", "Ensembl Gene ID"], :namespace => organism, :type => :double)
     log :pvalues, "Comparing observed vs expected counts"
+
     affected_samples_per_pathway.through do |pathway, samples|
       next unless samples.any?
       next unless pathway_expected_counts.include? pathway
-      pathway_genes = database_p2g[pathway].ensembl
+      pathway_genes = database_p2g[pathway][0]
+
       samples = samples.uniq.select{|sample| (covered_genes_per_samples[sample] & pathway_genes).any?}
       # Add 1 to estabilize estimates
       count = samples.length
       expected = Misc.mean(pathway_expected_counts[pathway]).floor
       pvalue = pathway_expected_counts[pathway].select{|exp_c| exp_c > count}.length.to_f / permutations
-      tsv[pathway] = [samples.sort, [count], [expected], [count.to_f / expected], [pathway_counts[pathway]], [pvalue], pathway_genes.subset(affected_genes)]
+      tsv[pathway] = [samples.sort, [count], [expected], [count.to_f / expected], [pathway_counts[pathway]], [pvalue], (pathway_genes & affected_genes)]
     end
 
     FDR.adjust_hash! tsv, 5 if fdr
