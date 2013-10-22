@@ -6,7 +6,6 @@ require 'rbbt/association'
 require 'rbbt/entity'
 require 'rbbt/entity/gene'
 require 'rbbt/knowledge_base'
-require 'rbbt/sources/organism'
 require 'rbbt/sources/pina'
 require 'rbbt/sources/kegg'
 require 'rbbt/sources/go'
@@ -33,7 +32,7 @@ Genomics.knowledge_base.register 'interpro' , InterPro.protein_domains         ,
 Genomics.knowledge_base.register 'reactome' , Reactome.protein_pathways        , :merge => true
 Genomics.knowledge_base.register 'nature'   , NCI.nature_pathways              , :merge => true , :target => "UniProt/SwissProt Accession" , :key_field => 0
 Genomics.knowledge_base.register 'biocarta' , NCI.biocarta_pathways            , :merge => true , :target => 2 , :key_field => 0
-Genomics.knowledge_base.register 'biocarta' , NCI.reactome_pathways            , :merge => true , :target => 2 , :key_field => 0
+#Genomics.knowledge_base.register 'reactome' , NCI.reactome_pathways            , :merge => true , :target => 2 , :key_field => 0
 
 Genomics.knowledge_base.register "pina", Pina.protein_protein, 
   :undirected => true, 

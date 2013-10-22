@@ -101,6 +101,13 @@ module Enrichment
       background = all_db_genes - background
     end
 
+    log :reordering, "Reordering database"
+    database_tsv.with_unnamed do
+      database_tsv.with_monitor :desc => "Reordering" do
+        database_tsv = database_tsv.reorder "Ensembl Gene ID"
+      end
+    end unless "Ensembl Gene ID" == database_field
+
     if mask_diseases and not Gene == Entity.formats[database_field]
       Log.debug("Masking #{MASKED_TERMS * ", "}")
       masked = MASKED_IDS[database] ||= database_tsv.with_unnamed do
@@ -153,13 +160,6 @@ module Enrichment
       end
     else
       masked = nil
-    end
-
-    log :reordering, "Reordering database"
-    database_tsv.with_unnamed do
-      database_tsv.with_monitor :desc => "Reordering" do
-        database_tsv = database_tsv.reorder database_field
-      end
     end
 
     missing = (all_db_genes - list).length if count_missing
