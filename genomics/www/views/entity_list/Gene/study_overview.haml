@@ -5,102 +5,55 @@
 
   %h4 Genotype overview
 
+  %p Significance calculated by mutations-per-base-pair frequencies
+
   - header "Number of samples", "NumericValue"
+  - header "Average mutation count", "NumericValue"
   - header "Samples with gene in list mutated", "Link"
   - header "Samples with gene in list affected", "Link"
   - header "Samples with gene in list damaged", "Link"
+  - header "Significant genes", "Ensembl Gene ID", :organism => list.organism
   = table(:list_links => false, :table_id => "genotype_overview_of_#{list_id}") do
-    - tsv = TSV.setup({}, :key_field => "Study", :fields => ["Number of samples", "Average mutation count", "Samples with gene in list mutated", "Samples with gene in list affected", "Samples with gene in list damaged", "Significantly mutated genes"], :type => :double)
-    - procs = []
-    - log :caching, "Caching studies genotype overview"
-    - RbbtSemaphore.with_semaphore(8, "/gene_list_overview_" << list_id) do |semaphore|
-      - jobs = []
-      - studies.each do |study|
-        - mutation_count = study.all_mutations.length
-        - next if mutation_count > 100_000
-        - begin
-          - job = Study.setup(study).job(:genotype_overview)
-          - jobs << job
-          - jobs << job.fork(semaphore)
-        - rescue
-          - Log.debug("Error preprocessing #{ study }: #{$!.message}")
-          - ddd $!.backtrace
-      - jobs.each do |job| job.join end
+    - tsv = TSV.setup({}, :key_field => "Study", :fields => ["Number of samples", "Average mutation count", "Samples with gene in list mutated", "Samples with gene in list affected", "Samples with gene in list damaged", "Significant genes"], :type => :double)
+
+    -# log :caching, "Caching studies genotype overview"
+    -# RbbtSemaphore.fork_each_on_semaphore(studies, 30) do |study|
+      - Study.setup(study)
+      - mutation_count = study.all_mutations.length
+      - next if mutation_count > 100_000
+      - begin
+        - study.knowledge_base.get_index(:sample_genes)
+      - rescue
+        - Log.debug("Error preprocessing #{ study }: #{$!.message}")
 
     - studies.each do |study|
       - mutation_count = study.all_mutations.length
       - next if mutation_count > 100_000
-      - log :genotype, "#{ study } genotype overview"
-      - overview = study.job(:genotype_overview).path.tsv(:grep => list)
-      - overview.unnamed = true
-      - begin
-        - significant_genes = Misc.process_to_hash(list){|list| overview.values_at *list}
-        - significant_genes = significant_genes.select{|gene,info| info and info[3].first != "> 0.1"}.collect{|gene, info| gene}
-        - Gene.setup(significant_genes, "Ensembl Gene ID", study.organism)
-        - info_list = overview.values_at(*list.ensembl).compact
-        - if info_list.empty?
-          - next
-        - else
-          - num_samples = study.samples.select_by(:has_genotype?).length
-          - next if num_samples == 0
-          - row = []
-          - row << [num_samples]
-          - row << [mutation_count / num_samples]
-          - row << Sample.setup(info_list.collect{|info| info[0]}.compact.flatten.uniq, study).list_link("%.3g" % ((list_length = info_list.collect{|info| info[0]}.compact.flatten.uniq.length).to_f * 100 / num_samples) + " % (#{list_length})", "Samples with #{list_id} mutated in #{ study }")
-          - row << Sample.setup(info_list.collect{|info| info[1]}.compact.flatten.uniq, study).list_link("%.3g" % ((list_length = info_list.collect{|info| info[1]}.compact.flatten.uniq.length).to_f * 100 / num_samples) + " % (#{list_length})", "Samples with #{list_id} affected in #{ study }")
-          - row << Sample.setup(info_list.collect{|info| info[2]}.compact.flatten.uniq, study).list_link("%.3g" % ((list_length = info_list.collect{|info| info[2]}.compact.flatten.uniq.length).to_f * 100 / num_samples) + " % (#{list_length})", "Samples with #{list_id} damaged in #{ study }")
-          - row << (significant_genes.any? ? significant_genes.link * ", " : "")
-          - tsv[study] = row
-      - rescue
-        - Log.debug($!.message)
-        - next
+      - genotyped_samples = study.samples.select_by(:has_genotype?)
+      - next if genotyped_samples.empty?
+      - significance = NKIWorkflow.job(:significantly_mutated, study, :study => study, :threshold => 0.1).run
+      - significance.identifiers = Organism.identifiers(study.organism)
+      - significance = significance.change_key "Ensembl Gene ID"
+      - num_samples = genotyped_samples.length
 
-    - tsv
+      - row = []
+      - row << genotyped_samples.length
+      - row << mutation_count.to_f / genotyped_samples.length
 
-  %h4 CNV overview
+      - mutated_samples = genotyped_samples.select do |sample|
+        - study.knowledge_base.subset(:sample_genes, "Sample" => [sample], "Gene" => list).length > 0
 
-  - header "Number of samples", "NumericValue"
-  - header "Samples with gene in list lost", "Link"
-  - header "Samples with gene in list gained", "Link"
-  = table(:list_links => false, :table_id => "cnv_overview_of_#{list_id}") do
-    - tsv = TSV.setup({}, :key_field => "Study", :fields => ["Number of samples", "Samples with gene in list gained", "Samples with gene in list lost", "Altered genes"], :type => :double)
-    - procs = []
-    - log :caching, "Caching studies CNV overview"
-    - RbbtSemaphore.with_semaphore(8, "/gene_list_overview_" << list_id) do |semaphore|
-      - jobs = []
-      - studies.each do |study|
-        - begin
-          - job = Study.setup(study).job(:cnv_overview)
-          - jobs << job.fork(semaphore)
-        - rescue
-          - Log.debug("Error preprocessing #{ study }: #{$!.message}")
-          - ddd $!.backtrace
-      - jobs.each do |job| job.join end
+      - affected_samples = genotyped_samples.select do |sample|
+        - study.knowledge_base.subset(:sample_genes, "Sample" => [sample], "Gene" => list).select{|match| match.info["Affected isoform"] == "true"}.length > 0
 
-    - studies.each do |study|
-      - log :cnv, "#{ study } CNV overview"
-      - mutation_count = study.all_mutations.length
-      - next if mutation_count > 100_000
-      - overview = study.job(:cnv_overview).path.tsv(:grep => list)
-      - overview.unnamed = true
-      - begin
-        - significant_genes = Misc.process_to_hash(list){|list| overview.values_at *list.ensembl}
-        - significant_genes = significant_genes.select{|g,ov| ov and ov.flatten.any?}.collect{|gene,o| gene}
-        - Gene.setup(significant_genes, "Ensembl Gene ID", study.organism)
-        - info_list = overview.values_at(*list.ensembl).compact
-        - if info_list.empty?
-          - next
-        - else
-          - num_samples = study.cnv_cohort.length
-          - next if num_samples == 0
-          - row = []
-          - row << [num_samples]
-          - row << Sample.setup(info_list.collect{|info| info[0]}.compact.flatten.uniq, study).list_link("%.3g" % ((list_length = info_list.collect{|info| info[0]}.compact.flatten.uniq.length).to_f * 100 / num_samples) + " % (#{list_length})", "Samples with #{list_id} lost in #{ study }")
-          - row << Sample.setup(info_list.collect{|info| info[1]}.compact.flatten.uniq, study).list_link("%.3g" % ((list_length = info_list.collect{|info| info[1]}.compact.flatten.uniq.length).to_f * 100 / num_samples) + " % (#{list_length})", "Samples with #{list_id} gained in #{ study }")
-          - row << (significant_genes.any? ? significant_genes.link * ", " : "")
-          - tsv[study] = row
-      - rescue
-        - Log.debug($!.message)
-        - next
+      - damaged_samples = genotyped_samples.select do |sample|
+        - study.knowledge_base.subset(:sample_genes, "Sample" => [sample], "Gene" => list).select{|match| match.info["Damaged isoform"] == "true"}.length > 0
+
+      - row << mutated_samples.list_link("%.3g" % ((list_length = mutated_samples.length).to_f * 100 / num_samples) + " % (#{list_length})", "Samples with #{list_id} mutated in #{ study }")
+      - row << affected_samples.list_link("%.3g" % ((list_length = affected_samples.length).to_f * 100 / num_samples) + " % (#{list_length})", "Samples with #{list_id} affected in #{ study }")
+      - row << damaged_samples.list_link("%.3g" % ((list_length = damaged_samples.length).to_f * 100 / num_samples) + " % (#{list_length})", "Samples with #{list_id} damaged in #{ study }")
+      - row << list.select{|gene| significance.include?(gene) and significance[gene]["p.value"].first.to_f < 0.05 }
+
+      - tsv[study] = row
 
     - tsv

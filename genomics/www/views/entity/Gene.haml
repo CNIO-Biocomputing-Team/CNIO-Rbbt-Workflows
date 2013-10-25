@@ -50,7 +50,7 @@
   = fragment do 
     - cosmic_mutations = entity.COSMIC_mutations.compact.select_by(:relevant?)
     - protein = entity.transcripts.protein.flatten.compact.sort_by{|p| (p.sequence ||[]).length}.last if entity.proteins and entity.proteins.any?
-    - protein_mutations = cosmic_mutations.mutated_isoforms.compact.flatten.select{|mi| mi.protein == protein} if cosmic_mutations
+    - protein_mutations = Annotated.flatten(cosmic_mutations.mutated_isoforms.compact).select{|mi| mi.protein == protein} if cosmic_mutations
     - if protein and protein_mutations and protein_mutations.any?
       - positions = protein_mutations.position.sort.sort 
       - distances = positions[1..-1].zip(positions).collect{|p1,p2| p1 - p2}

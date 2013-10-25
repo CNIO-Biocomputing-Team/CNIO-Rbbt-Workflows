@@ -58,7 +58,7 @@ if __FILE__ == $0
 
     end
   end
-  matrix = Graph.job(:matrix,nil).clean.run
+  matrix = Graph.job(:matrix,nil).run(true).path.tsv :grep => "true.*true"
   matrix.with_unnamed do
     matrix.monitor do
       matrix.through do |k,v| 
